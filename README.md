@@ -223,6 +223,12 @@ cp .cursor/mcp.json.example .cursor/mcp.json  # creates the settings file for Cu
 > into a new file called `.mcp.json`. You're not deleting anything — just duplicating
 > the template so you have your own version to edit.
 
+> ⚠️ **Already using other MCP tools in Claude or Cursor?** **Do NOT run the `cp`
+> commands above** — they would overwrite your existing `.mcp.json` / `.cursor/mcp.json`
+> and wipe out your other tools. Instead, *merge* this one in — see
+> [Adding it alongside tools you already have](#-adding-it-alongside-tools-you-already-have)
+> just below.
+
 **Step 2 — Put your real folder path into each new file.**
 
 Open the two files you just created (`.mcp.json` and `.cursor/mcp.json`) in any text
@@ -250,6 +256,47 @@ claude mcp add browser-flow-tracker -- node /full/path/to/browser-flow-tracker/m
   `browser-flow-tracker`.
 
 That's it — now just talk to it (see [Way 1](#way-1-️-just-ask-claude-or-cursor-easiest--zero-commands)).
+
+### ➕ Adding it alongside tools you already have
+
+If you've **already** got MCP tools set up (so a `.mcp.json` / `.cursor/mcp.json` or a
+Cursor config already exists), you want to **add** this tool to that list — not replace it.
+
+**Easiest way for Claude Code — one command that merges automatically:**
+
+```bash
+claude mcp add browser-flow-tracker -- node /full/path/to/browser-flow-tracker/mcp/server.js
+```
+
+This safely appends `browser-flow-tracker` to whatever you already have. (Swap in your
+real path — run `pwd` inside the folder to get it.)
+
+**Doing it by hand (Claude Code or Cursor):** open your existing settings file and add
+just the `browser-flow-tracker` block inside the `mcpServers` section you already have.
+The trick is the **comma** after your previous tool. It should end up looking like this:
+
+```json
+{
+  "mcpServers": {
+    "your-existing-tool": {
+      "command": "...",
+      "args": ["..."]
+    },
+    "browser-flow-tracker": {
+      "command": "node",
+      "args": ["/full/path/to/browser-flow-tracker/mcp/server.js"]
+    }
+  }
+}
+```
+
+> 💡 Every tool lives as its own entry inside the one shared `mcpServers` block, each
+> separated by a comma. As long as the file stays valid JSON (matching `{ }` braces,
+> commas between entries but **not** after the last one), all your tools work together.
+
+Where these files live, in case you're hunting for an existing one:
+- **Claude Code:** `.mcp.json` in a project folder, or your user-level config (managed by `claude mcp`).
+- **Cursor:** `.cursor/mcp.json` in a project folder, or the global `~/.cursor/mcp.json`.
 Behind the scenes it has four skills it uses automatically:
 
 | Skill | What it does |
