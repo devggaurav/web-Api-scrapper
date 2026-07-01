@@ -18,7 +18,20 @@ const ANALYTICS_HOSTS = [
   'sentry.io', 'bugsnag.com', 'datadoghq.com', 'newrelic.com', 'nr-data.net',
   'intercom.io', 'clarity.ms', 'optimizely.com', 'launchdarkly.com',
   'cloudflareinsights.com', 'doubleverify.com', 'branch.io', 'appsflyer.com',
+  'posthog.com', 'i.posthog.com', 'heapanalytics.com', 'mouseflow.com',
+  'quantserve.com', 'scorecardresearch.com', 'snowplowanalytics.com',
+  'stats.g.doubleclick.net', 'analytics.tiktok.com', 'bat.bing.com',
 ];
+
+// Analytics/telemetry that hits a FIRST-PARTY host (so host matching misses it):
+// e.g. Google Analytics' /g/collect, Cloudflare RUM's /cdn-cgi/rum. Matched on path.
+const ANALYTICS_PATH_RE = /\/cdn-cgi\/(rum|beacon)|\/g\/collect|\/j\/collect|\/mp\/collect|\/gtag\/|\/gtm\.js|\/piwik\.php|\/matomo\.php|\/b\/ss\//i;
+
+// Google Analytics / Measurement Protocol requests carry a tid=G-/UA-/GT- id.
+function looksLikeGoogleAnalytics(query) {
+  const tid = query?.get?.('tid');
+  return typeof tid === 'string' && /^(G-|UA-|GT-|AW-|DC-)/.test(tid);
+}
 
 /**
  * Decide whether a request is "API-relevant".
@@ -29,10 +42,12 @@ export function classify(req) {
   const url = req.url || '';
   let host = '';
   let path = url;
+  let query = null;
   try {
     const u = new URL(url);
     host = u.hostname;
     path = u.pathname + u.search;
+    query = u.searchParams;
   } catch {
     // non-URL (data:, blob:) — always noise for our purposes
     return { keep: false, reason: 'non-http scheme', category: 'other' };
@@ -42,7 +57,13 @@ export function classify(req) {
     return { keep: false, reason: 'inline resource', category: 'other' };
   }
   if (ANALYTICS_HOSTS.some((h) => host.includes(h.split('/')[0]) && url.includes(h))) {
-    return { keep: false, reason: 'analytics/telemetry', category: 'analytics' };
+    return { keep: false, reason: 'analytics/telemetry host', category: 'analytics' };
+  }
+  if (ANALYTICS_PATH_RE.test(path)) {
+    return { keep: false, reason: 'analytics/telemetry endpoint', category: 'analytics' };
+  }
+  if (looksLikeGoogleAnalytics(query)) {
+    return { keep: false, reason: 'google analytics beacon', category: 'analytics' };
   }
   if (NOISE_TYPES.has(type)) {
     return { keep: false, reason: `resource type ${type}`, category: 'asset' };
