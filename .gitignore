@@ -1,0 +1,10 @@
+node_modules/
+recordings/
+*.log
+.DS_Store
+.claude/settings.local.json
+
+# Local MCP configs contain machine-specific absolute paths.
+# Copy the .example files and fill in your own path.
+.mcp.json
+.cursor/mcp.json

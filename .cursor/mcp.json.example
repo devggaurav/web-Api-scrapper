@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "browser-flow-tracker": {
+      "command": "node",
+      "args": ["/full/path/to/browser-flow-tracker/mcp/server.js"]
+    }
+  }
+}

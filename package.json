@@ -1,0 +1,22 @@
+{
+  "name": "browser-flow-tracker",
+  "version": "0.1.0",
+  "description": "Record and document the API flow of any Chromium browser page (Brave, Chrome, Arc, Edge) via the Chrome DevTools Protocol. Emits structured JSON + HAR + a Markdown flow-doc for Claude/Cursor.",
+  "type": "module",
+  "bin": {
+    "bft": "bin/bft.js"
+  },
+  "scripts": {
+    "start": "node bin/bft.js",
+    "mcp": "node mcp/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.33.3",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^4.4.3"
+  },
+  "license": "MIT"
+}
