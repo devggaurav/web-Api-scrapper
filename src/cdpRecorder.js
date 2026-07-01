@@ -66,6 +66,12 @@ export class CdpRecorder {
     Network.loadingFailed((p) => this._onFailed(p));
     Network.webSocketCreated((p) => this._onWebSocket(p));
 
+    // Fires when the browser/tab is closed by the user (the CDP socket drops).
+    // Lets the session auto-finalize and write files on browser close.
+    this.client.on('disconnect', () => {
+      if (!this.stopping) this.onDisconnect?.();
+    });
+
     return { target: { id: target.id, url: target.url, title: target.title } };
   }
 
@@ -176,6 +182,7 @@ export class CdpRecorder {
   }
 
   async stop() {
+    this.stopping = true; // suppress the disconnect->auto-finalize path
     // Give any in-flight loadingFinished handlers a beat to grab bodies.
     await new Promise((r) => setTimeout(r, 200));
     const records = this.getRecords();

@@ -57,6 +57,8 @@ export class TrackingSession {
     this.recorder = null;
     this.launched = null;
     this.active = false;
+    this.finalized = null;      // set when files have been written
+    this.closedByUser = false;  // true if finalized because the browser was closed
   }
 
   async start() {
@@ -92,6 +94,8 @@ export class TrackingSession {
       : undefined;
 
     this.recorder = new CdpRecorder({ port, host, targetFilter });
+    // If the user closes the browser/tab, auto-finalize and write the files.
+    this.recorder.onDisconnect = () => { this._onBrowserClosed(); };
     const info = await this.recorder.start();
     this.active = true;
     this.port = port;
@@ -120,7 +124,22 @@ export class TrackingSession {
     });
   }
 
+  // Called when the CDP socket drops because the user closed the browser/tab.
+  _onBrowserClosed() {
+    if (!this.active || this.finalized) return; // already stopping/stopped
+    this.closedByUser = true;
+    // Fire-and-forget: write files with the session's default output settings.
+    this.stop({
+      outDir: this.opts.outDir,
+      name: this.opts.name,
+      closeBrowser: false,
+    }).catch(() => { /* nothing we can do here */ });
+  }
+
   async stop({ outDir, name, write = true, closeBrowser = false } = {}) {
+    // Idempotent: if we already wrote files (e.g. the browser was closed), just
+    // return that result instead of erroring on a later explicit stop.
+    if (this.finalized) return this.finalized;
     if (!this.recorder) throw new Error('Session not started.');
     const raw = await this.recorder.stop();
     this.active = false;
@@ -159,6 +178,8 @@ export class TrackingSession {
       try { this.launched.child.kill(); } catch { /* ignore */ }
     }
 
-    return { session, files };
+    const result = { session, files, closedByUser: this.closedByUser };
+    this.finalized = result;
+    return result;
   }
 }

@@ -3,38 +3,45 @@ description: How to record/analyze/document a web page's API or network flow
 alwaysApply: true
 ---
 
-# Recording & documenting a page's API flow
+# Recording a page's API flow (use the browser-flow-tracker MCP)
 
-When the user asks to **record, analyze, or document the API / network flow** of a web
-page or app module — phrasings like "what APIs does this page call", "document the
-checkout flow", "track the requests on this screen", "map the API calls" — you MUST use
-the **`browser-flow-tracker` MCP tools**. This is the only approved method.
+## Trigger
 
-## Do
+When the user says something like **"let's record the session for this url `<URL>`"**
+— or any request to record / analyze / document the API or network flow of a page
+("what APIs does this call", "document the checkout flow", "track the requests") — you
+MUST use the **`browser-flow-tracker` MCP tools**. This is the only approved method.
 
-- Use `mcp_browser-flow-tracker_start_tracking` to begin. It launches a fresh browser
-  window (or attaches to one) and **auto-selects a free debug port** — you do not manage
-  ports.
-- Then **STOP and let the USER navigate the flow themselves.** The capture is
-  user-driven. Post a short instruction telling them to click through the real flow in
-  the open window and say "done" when finished.
-- Use `mcp_browser-flow-tracker_get_flow` for a live peek without stopping.
-- When the user says they are done, call `mcp_browser-flow-tracker_stop_tracking` (pass a
-  `name` and `title`). It writes `.flow.json`, `.har`, and `.md` files. Read the
-  `.flow.json` from disk and write the user a clean flow document from it.
+## The loop
+
+1. Call `mcp_browser-flow-tracker_start_tracking` with `launch: true`, `browser: "brave"`
+   (or the browser the user names), and `url: "<the URL they gave>"`. It opens a browser
+   window and **auto-picks a free debug port** — you never manage ports.
+2. Then **STOP and let the USER navigate the flow themselves.** Post a short message:
+   "Recording — click through the flow in the open window, then say **done** (or just
+   close the browser) when finished." Do NOT click or navigate for them.
+3. Keep the session running. If the user asks what's captured, call
+   `mcp_browser-flow-tracker_get_flow`.
+4. The recording ends when **either**:
+   - the user says **"done"** / "stop" → call `mcp_browser-flow-tracker_stop_tracking`
+     (pass a `name` and `title`), **or**
+   - the user **closes the browser** → the session auto-finalizes and writes the files.
+     Detect this by calling `get_flow` (it returns `status: "ended"` with the file paths)
+     or `stop_tracking` (idempotent — returns the already-written result).
+5. Both paths write `.flow.json`, `.har`, and `.md` files. **Read the `.flow.json` from
+   disk** and write the user a clean flow document from it.
 
 ## Do NOT
 
-- Do NOT launch browsers, kill processes, or poke at `--remote-debugging-port` / port
-  9222 via the shell. `start_tracking` handles all of that.
-- Do NOT write your own network-sniffing scripts or try to analyze traffic yourself.
-- Do NOT auto-navigate or click through the flow on the user's behalf — they drive.
-- Do NOT use headless mode unless the user asks; they need to see and interact with the
-  window (and log in).
+- Do NOT launch browsers, kill processes, or touch `--remote-debugging-port` / port 9222
+  via the shell. `start_tracking` does all of that.
+- Do NOT write your own network-sniffing scripts or analyze traffic yourself.
+- Do NOT auto-navigate the flow — the user drives.
+- Do NOT use headless mode unless asked; the user needs to see and interact with the window.
+- If `stop_tracking`'s result seems large, rely on the compact `calls` summary it returns
+  and read the `.flow.json` file for full detail.
 
 ## Notes
 
-- The launched window uses a **persistent profile**, so a login done once is remembered
-  on later recordings. For flows behind auth, the user just logs in the first time.
-- If `stop_tracking`'s result is too large to return inline, read the written
-  `.flow.json` file from disk instead and summarize from there.
+- The window uses a **persistent profile**, so a login done once is remembered next time.
+  For flows behind auth, the user logs in on the first recording only.

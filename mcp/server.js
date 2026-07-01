@@ -67,6 +67,9 @@ server.registerTool(
       headless: z.boolean().optional().describe('Launch headless (launch mode).'),
       includeNoise: z.boolean().optional().describe('Also keep filtered static/analytics requests.'),
       redact: z.boolean().optional().describe('Redact auth/cookie headers (default true).'),
+      outDir: z.string().optional().describe('Where to write output files if the user closes the browser (default ./recordings).'),
+      name: z.string().optional().describe('Output file basename used on auto-finalize (default flow-<timestamp>).'),
+      title: z.string().optional().describe('Title for the generated Markdown document.'),
     },
   },
   async (args) => {
@@ -81,6 +84,10 @@ server.registerTool(
       headless: Boolean(args.headless),
       includeNoise: Boolean(args.includeNoise),
       redact: args.redact !== false,
+      // Defaults used to write files automatically if the user closes the browser.
+      outDir: args.outDir,
+      name: args.name,
+      title: args.title,
     });
     try {
       const info = await current.start();
@@ -104,6 +111,17 @@ server.registerTool(
     },
   },
   async ({ full }) => {
+    // If the user closed the browser, the session auto-finalized and wrote files.
+    if (current && !current.active && current.finalized) {
+      const f = current.finalized;
+      return json({
+        status: 'ended',
+        reason: current.closedByUser ? 'browser closed by user' : 'stopped',
+        files: f.files,
+        stats: f.session.stats,
+        note: 'The recording is finished and files are written. Read the .flow.json to build the doc.',
+      });
+    }
     if (!current?.active) return err('No active tracking session. Call start_tracking first.');
     const snap = current.snapshot();
     if (full) return json(snap);
@@ -129,12 +147,24 @@ server.registerTool(
     if (!current) return err('No session to stop.');
     if (args.title) current.opts.title = args.title;
     try {
-      const { session, files } = await current.stop({
+      const { session, files, closedByUser } = await current.stop({
         outDir: args.outDir,
         name: args.name,
         closeBrowser: args.closeBrowser,
       });
-      const result = { status: 'stopped', files, stats: session.stats, target: session.target, flow: session.flow };
+      // Return a COMPACT summary + file paths only. Full detail (bodies/headers)
+      // can be huge, so it lives in the .flow.json file — read that to build the doc.
+      const calls = session.flow
+        .filter((e) => e.category !== 'document')
+        .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs }));
+      const result = {
+        status: closedByUser ? 'ended (browser closed)' : 'stopped',
+        files,
+        stats: session.stats,
+        target: session.target,
+        calls,
+        note: 'Full request/response detail is in the .flow.json file — read it from disk to write the doc.',
+      };
       current = null;
       return json(result);
     } catch (e) {
