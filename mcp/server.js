@@ -22,7 +22,27 @@ function err(message) {
   return { isError: true, content: [{ type: 'text', text: message }] };
 }
 
-const server = new McpServer({ name: 'browser-flow-tracker', version: '0.1.0' });
+const server = new McpServer(
+  { name: 'browser-flow-tracker', version: '0.1.0' },
+  {
+    instructions: [
+      'Use these tools whenever the user wants to record, analyze, or document the',
+      'API / network flow of a web page or app module (e.g. "what APIs does this call",',
+      '"document the checkout flow", "track the requests on this page").',
+      '',
+      'ALWAYS use these tools for that job. Do NOT hand-roll browser automation, do NOT',
+      'launch browsers or poke at debug ports via the shell, and do NOT try to analyze',
+      'network traffic yourself — start_tracking handles launching/attaching and picks a',
+      'free port automatically.',
+      '',
+      'The capture is USER-DRIVEN: call start_tracking (launch a fresh window OR attach to',
+      "the user's browser), then STOP and let the USER navigate/click through the real flow",
+      'themselves. Do not auto-navigate the flow for them. When they say they are done, call',
+      'stop_tracking and turn the returned flow into a document. Use get_flow for a live peek.',
+      'The launched window uses a persistent profile, so a login done once is remembered.',
+    ].join('\n'),
+  },
+);
 
 server.registerTool(
   'list_browsers',
@@ -64,7 +84,10 @@ server.registerTool(
     });
     try {
       const info = await current.start();
-      return json({ status: 'recording', ...info, hint: 'Interact with the page, then call get_flow to peek or stop_tracking to finish.' });
+      const hint = info.reusedExisting
+        ? 'Reused the already-open recording window (your login is preserved). Now let the USER navigate the flow; call get_flow to peek or stop_tracking when they are done.'
+        : 'A browser window is open and recording. Do NOT navigate it yourself — let the USER click through the real flow, then call get_flow to peek or stop_tracking to finish. (Persistent profile: any login is remembered next time.)';
+      return json({ status: 'recording', ...info, hint });
     } catch (e) {
       current = null;
       return err(`Failed to start tracking: ${e.message}`);

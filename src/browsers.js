@@ -92,6 +92,9 @@ export function launchBrowser({ id, port = 9222, url, userDataDir, headless = fa
     '--no-first-run',
     '--no-default-browser-check',
     '--remote-allow-origins=*',
+    // Persistent profiles otherwise nag "Chrome didn't shut down correctly".
+    '--disable-session-crashed-bubble',
+    '--hide-crash-restore-bubble',
   ];
   if (headless) args.push('--headless=new');
   if (url) args.push(url);

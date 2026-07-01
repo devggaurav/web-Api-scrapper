@@ -1,0 +1,40 @@
+---
+description: How to record/analyze/document a web page's API or network flow
+alwaysApply: true
+---
+
+# Recording & documenting a page's API flow
+
+When the user asks to **record, analyze, or document the API / network flow** of a web
+page or app module — phrasings like "what APIs does this page call", "document the
+checkout flow", "track the requests on this screen", "map the API calls" — you MUST use
+the **`browser-flow-tracker` MCP tools**. This is the only approved method.
+
+## Do
+
+- Use `mcp_browser-flow-tracker_start_tracking` to begin. It launches a fresh browser
+  window (or attaches to one) and **auto-selects a free debug port** — you do not manage
+  ports.
+- Then **STOP and let the USER navigate the flow themselves.** The capture is
+  user-driven. Post a short instruction telling them to click through the real flow in
+  the open window and say "done" when finished.
+- Use `mcp_browser-flow-tracker_get_flow` for a live peek without stopping.
+- When the user says they are done, call `mcp_browser-flow-tracker_stop_tracking` (pass a
+  `name` and `title`). It writes `.flow.json`, `.har`, and `.md` files. Read the
+  `.flow.json` from disk and write the user a clean flow document from it.
+
+## Do NOT
+
+- Do NOT launch browsers, kill processes, or poke at `--remote-debugging-port` / port
+  9222 via the shell. `start_tracking` handles all of that.
+- Do NOT write your own network-sniffing scripts or try to analyze traffic yourself.
+- Do NOT auto-navigate or click through the flow on the user's behalf — they drive.
+- Do NOT use headless mode unless the user asks; they need to see and interact with the
+  window (and log in).
+
+## Notes
+
+- The launched window uses a **persistent profile**, so a login done once is remembered
+  on later recordings. For flows behind auth, the user just logs in the first time.
+- If `stop_tracking`'s result is too large to return inline, read the written
+  `.flow.json` file from disk instead and summarize from there.
