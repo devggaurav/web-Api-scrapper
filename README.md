@@ -118,18 +118,32 @@ Pick whichever feels comfortable. They all produce the same nice files.
 ### Way 1: 🗣️ Just ask Claude or Cursor (easiest — zero commands)
 
 Once the tool is connected (it already is — see [Connecting to Claude/Cursor](#-connecting-to-claude--cursor)),
-you literally just **ask in plain English**:
+you literally just **say the magic phrase**:
 
-> *"Track the login flow on staging.myapp.com and write me a doc of what APIs it calls."*
+> ### *"Let's record the session for this url `https://your-website.com`"*
 
-Claude/Cursor will open a browser, record the flow, and write the document for you.
+Here's what happens automatically:
+
+1. 🪟 The AI opens a **real browser window** at that URL (it picks a free port itself —
+   nothing for you to configure).
+2. 🖱️ **You** click through the flow you want documented. *You* drive — the AI does not
+   click for you.
+3. 🛑 When you're finished, either **say "done"** *or just **close the browser window***.
+4. 📄 The AI writes the `.flow.json` / `.har` / `.md` files and hands you a clean doc of
+   the APIs it saw.
+
 You don't type a single command. ✨
+
+> 🔐 **Logging in?** The window uses its own saved profile, so you only log in the
+> **first** time — future recordings remember you.
+
+> ⚠️ **If your AI ignores the phrase** and starts poking around on its own instead of
+> using the tool, you haven't installed the rule yet — see
+> [Make your AI always use it](#-make-your-ai-always-use-it).
 
 ---
 
-### Way 2: 🧼 Let the tool open a fresh browser for you
-
-Best when you **don't need to be logged in** to see the flow.
+### Way 2: 🧼 Let the tool open a browser for you (Terminal)
 
 Paste this into Terminal (change the website):
 
@@ -138,19 +152,25 @@ cd path/to/browser-flow-tracker   # 👈 the folder where this tool lives
 node bin/bft.js record --launch --browser brave --url https://your-website.com
 ```
 
-A browser window pops open. **Click around, do the thing you want to document.**
-When you're done, come back to Terminal and press **`Ctrl + C`** to stop.
+A browser window pops open on its own **private profile** (it never touches your normal
+Brave). **Click around, do the thing you want to document** — logging in if you need to.
+When you're done, either press **`Ctrl + C`** in Terminal **or just close the browser
+window** — both save the recording.
 
 💥 Your files appear in the `recordings/` folder.
+
+> 🔐 You only log in the **first** time — the private profile remembers you for next time.
 
 > Don't have Brave? Run `node bin/bft.js list` to see which browsers you have,
 > then swap `brave` for `arc`, `chrome`, etc.
 
 ---
 
-### Way 3: 🔐 Watch your *own* browser (for sites you're logged into)
+### Way 3: 🔐 Watch your *own* main browser (advanced)
 
-Best when the flow only happens **after you log in** (dashboards, checkout, admin panels).
+Usually **Way 1 or Way 2 is enough** even for logged-in sites (you log in once in the
+tool's own window and it's remembered). Use this only if you specifically need to record
+inside your **existing, already-open** browser session.
 
 **Step 1.** Ask the tool for the magic command:
 
@@ -308,23 +328,69 @@ Behind the scenes it has four skills it uses automatically:
 
 ---
 
+## 🧲 Make your AI always use it
+
+Sometimes an AI will "helpfully" try to analyze a page **its own way** (poking around with
+scripts) instead of using this tool. To stop that, give it a standing rule so the phrase
+**"let's record the session for this url …"** always triggers the tool. Do it once and it
+works in every project.
+
+### Cursor
+
+Add a **User Rule** (applies in all projects): **Settings → Rules & Memories → User Rules
+→ + Add**, and paste:
+
+```
+When I say "let's record the session for this url <URL>" — or ask you to record/
+analyze/document the API or network flow of a page — ALWAYS use the browser-flow-
+tracker MCP tools (start_tracking, get_flow, stop_tracking). Do not launch browsers,
+touch debug ports, or sniff traffic yourself.
+Loop: call start_tracking with launch:true, browser:"brave", url:<URL>. Then let ME
+navigate — do not click for me. The recording ends when I say "done" (call
+stop_tracking with a name+title) OR I close the browser (it auto-finalizes; detect via
+get_flow returning status:"ended"). Both write .flow.json/.har/.md — read the
+.flow.json and write me a clean flow doc.
+```
+
+*(A copy of this rule also ships in `.cursor/rules/browser-flow-tracker.mdc`, which
+applies automatically whenever you work inside this project.)*
+
+### Claude Code
+
+Add the same guidance to your **global** `~/.claude/CLAUDE.md` (create the file if it
+doesn't exist) so it applies in every project. The exact text is in
+[`.cursor/rules/browser-flow-tracker.mdc`](.cursor/rules/browser-flow-tracker.mdc) — copy
+the body into `~/.claude/CLAUDE.md`.
+
+> After adding a rule, **restart the AI app** so it picks it up.
+
+---
+
 ## ❓ Common questions & fixes
+
+**"My AI didn't use the tool — it started doing its own thing."**
+You haven't given it the standing rule yet. See
+[Make your AI always use it](#-make-your-ai-always-use-it), then restart the AI app.
+
+**"How do I stop a recording?"**
+Two ways, whichever you like: **say "done"** to your AI, **or just close the browser
+window**. Both save the files automatically. (In Terminal, `Ctrl + C` also works.)
+
+**"Do I have to log in every time?"**
+No — the tool's browser window keeps its own saved profile, so you log in the **first**
+time and it's remembered afterwards.
 
 **"It says 'No known browsers found'."**
 Run `node bin/bft.js list`. If it's empty, you don't have a supported browser
 installed. Install Brave or Chrome (both free) and try again.
 
-**"It won't attach to my browser (Way 3)."**
-Chrome/Brave refuse "watch me" mode if a normal window is already open. **Fully quit
-the browser first** (`Cmd + Q`), then run the command from `attach-help`.
-
 **"Nothing showed up in my recording."**
-Make sure you actually *did the thing* in the browser between starting and pressing
-`Ctrl + C`. Some pages need a click or a page load to fire their APIs.
+Make sure you actually *did the thing* in the browser before you stopped. Some pages need
+a click or a page load to fire their APIs.
 
 **"Where are my files again?"**
-In the `recordings/` folder inside this project — unless you used `--out` to send
-them elsewhere. The tool also prints the exact file paths when it finishes.
+In the `recordings/` folder — unless you used `--out` (or the AI set a different location).
+The tool prints the exact file paths when it finishes, and the AI can read them back to you.
 
 **"Can I use Safari?"**
 Not yet 😔 — Safari and Firefox work differently under the hood. For now use Brave,

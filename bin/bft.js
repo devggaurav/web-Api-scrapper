@@ -97,6 +97,9 @@ async function cmdRecord(args) {
     includeNoise: Boolean(args['include-noise']),
     redact: !args['no-redact'],
     title: typeof args.title === 'string' ? args.title : undefined,
+    // Used if the user closes the browser instead of pressing Ctrl+C.
+    outDir: typeof args.out === 'string' ? args.out : undefined,
+    name: typeof args.name === 'string' ? args.name : undefined,
   });
 
   console.log(launch ? `Launching ${args.browser}…` : `Attaching to CDP on port ${args.port || 9222}…`);
@@ -110,10 +113,22 @@ async function cmdRecord(args) {
   }
 
   console.log(`Attached to: ${info.attachedTo?.url || '(page)'}`);
-  console.log('● Recording… interact with the page, then press Ctrl+C to save.\n');
+  console.log('● Recording… interact with the page, then press Ctrl+C — or just close the browser — to save.\n');
 
-  // Periodic live count so the user sees it's working.
+  // Periodic live count so the user sees it's working. Also detects the user
+  // closing the browser (session auto-finalizes) and reports the written files.
   const ticker = setInterval(() => {
+    if (session.finalized) {
+      clearInterval(ticker);
+      const { session: result, files } = session.finalized;
+      process.stdout.write('\n\nBrowser closed — recording saved.\n');
+      console.log(`\nCaptured ${result.stats.kept} API calls (${result.stats.droppedCount} filtered).`);
+      console.log('\nWrote:');
+      console.log(`  JSON (for Claude/Cursor): ${files.json}`);
+      console.log(`  HAR  (DevTools/Postman):  ${files.har}`);
+      console.log(`  Doc  (Markdown draft):    ${files.markdown}`);
+      process.exit(0);
+    }
     const snap = session.snapshot();
     process.stdout.write(`\r  ${snap.stats.kept || 0} API calls captured…   `);
   }, 1000);
