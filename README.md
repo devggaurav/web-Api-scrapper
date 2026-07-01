@@ -202,27 +202,54 @@ node bin/bft.js record --launch --browser brave \
 
 ## 🤖 Connecting to Claude / Cursor
 
-There are two ready-made template files. Copy each one and fill in the real path to
-this folder (the same path trick from setup — drag the folder into Terminal to get it):
+To let Claude or Cursor use this tool, you need to give them a small **settings file**
+that tells them where the tool lives on your computer. The folder already includes
+**ready-made templates** for these — you just make your own copy and fill in your path.
+
+Here's exactly what to do:
+
+**Step 1 — Make your own settings files from the templates.**
+
+A template file ends in `.example`. You'll make a real copy of it (without `.example`).
+Paste these two lines into Terminal (make sure you've `cd`'d into the tool's folder first):
 
 ```bash
-cp .mcp.json.example .mcp.json                # for Claude Code
-cp .cursor/mcp.json.example .cursor/mcp.json  # for Cursor
+cp .mcp.json.example .mcp.json                # creates the settings file for Claude Code
+cp .cursor/mcp.json.example .cursor/mcp.json  # creates the settings file for Cursor
 ```
 
-Then open each copy and replace `/full/path/to/browser-flow-tracker` with your actual path.
+> 💡 **What does `cp` mean?** It's short for "copy". `cp A B` means *"make a copy of
+> file A and call it B"*. So the first line copies the template `.mcp.json.example`
+> into a new file called `.mcp.json`. You're not deleting anything — just duplicating
+> the template so you have your own version to edit.
 
-**To use in Claude Code:** open this folder in Claude Code and approve the
-`browser-flow-tracker` tool when it asks. Or connect it everywhere with:
+**Step 2 — Put your real folder path into each new file.**
+
+Open the two files you just created (`.mcp.json` and `.cursor/mcp.json`) in any text
+editor. Inside, you'll see this placeholder:
+
+```
+/full/path/to/browser-flow-tracker/mcp/server.js
+```
+
+Replace `/full/path/to/browser-flow-tracker` with the actual location of this folder
+on *your* machine. (Quick way to get it: in Terminal, `cd` into the folder and run
+`pwd` — it prints the full path. Copy that.) Save both files.
+
+**Step 3 — Turn it on.**
+
+- **Claude Code:** open this folder in Claude Code and approve the
+  `browser-flow-tracker` tool when it asks. Or connect it everywhere with one command
+  (again, swap in your real path):
 
 ```bash
 claude mcp add browser-flow-tracker -- node /full/path/to/browser-flow-tracker/mcp/server.js
 ```
 
-**To use in Cursor:** restart Cursor, go to **Settings → MCP**, and switch on
-`browser-flow-tracker`.
+- **Cursor:** restart Cursor, go to **Settings → MCP**, and switch on
+  `browser-flow-tracker`.
 
-Then just talk to it (see [Way 1](#way-1-️-just-ask-claude-or-cursor-easiest--zero-commands)).
+That's it — now just talk to it (see [Way 1](#way-1-️-just-ask-claude-or-cursor-easiest--zero-commands)).
 Behind the scenes it has four skills it uses automatically:
 
 | Skill | What it does |
