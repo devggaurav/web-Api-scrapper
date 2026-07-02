@@ -180,12 +180,21 @@
 <section id="install">
   <div class="wrap">
     <h2>Install in 10 seconds</h2>
-    <p class="section-sub">No Node.js, no PATH headaches. One command installs a standalone binary (macOS / Linux):</p>
+    <p class="section-sub">No Node.js, no PATH headaches. One command installs a standalone binary — on macOS, Windows or Linux.</p>
+
+    <p class="note" style="text-align:left;margin:0 0 6px;"><b>macOS &amp; Linux</b> — Terminal:</p>
     <div class="codeblock">
       <button class="copy" onclick="copyText(this, 'inst')">Copy</button>
       <pre><code id="inst">curl -fsSL https://apiflowtracker.com/install.sh | sh</code></pre>
     </div>
-    <p class="note">Windows: grab the <code>.exe</code> from the <a href="https://github.com/devggaurav/web-Api-scrapper/releases/latest">latest release</a>. The installer prints the exact config — add it to Claude/Cursor:</p>
+
+    <p class="note" style="text-align:left;margin:14px 0 6px;"><b>Windows</b> — PowerShell:</p>
+    <div class="codeblock">
+      <button class="copy" onclick="copyText(this, 'instwin')">Copy</button>
+      <pre><code id="instwin">irm https://apiflowtracker.com/install.ps1 | iex</code></pre>
+    </div>
+
+    <p class="note">The installer prints the exact MCP config to add to Claude/Cursor — it looks like this (macOS/Linux path shown):</p>
     <div class="codeblock">
       <button class="copy" onclick="copyText(this, 'cfg')">Copy</button>
       <pre><code id="cfg">{
@@ -226,7 +235,7 @@
     <a href="https://www.npmjs.com/package/browser-flow-tracker">npm</a> ·
     MIT licensed
   </p>
-  <p style="margin-top:10px;">Runs locally on your machine. Safari &amp; Firefox support is on the roadmap.</p>
+  <p style="margin-top:10px;">Runs locally on macOS, Windows &amp; Linux. Safari &amp; Firefox support is on the roadmap.</p>
 </footer>
 
 <script>

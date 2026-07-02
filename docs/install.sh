@@ -18,7 +18,7 @@ arch=$(uname -m)
 case "$os" in
   Darwin) OS=darwin ;;
   Linux)  OS=linux ;;
-  *) err "Unsupported OS '$os'. On Windows, download the .exe from https://github.com/$REPO/releases/latest" ;;
+  *) err "Unsupported OS '$os'. On Windows, run in PowerShell:  irm https://apiflowtracker.com/install.ps1 | iex" ;;
 esac
 case "$arch" in
   arm64|aarch64) ARCH=arm64 ;;

@@ -229,35 +229,34 @@ node bin/bft.js record --launch --browser brave \
 
 ## 🤖 Connecting to Claude / Cursor
 
-### ✅ Recommended: one-line install (no Node, works everywhere)
+### ✅ Recommended: one-line install (no Node, works on macOS, Windows & Linux)
 
-The most reliable way — **no Node.js required**, and it avoids the `spawn npx ENOENT`
-PATH problems that trip up GUI apps. It installs a standalone binary to a fixed path
-your AI can always find.
+The most reliable way — **no Node.js required** — and it avoids the `spawn npx ENOENT`
+PATH problems that trip up GUI apps. It installs a standalone binary and prints the exact
+MCP config to paste.
 
-**macOS / Linux** — paste into Terminal:
+**macOS & Linux** — in Terminal:
 
 ```bash
 curl -fsSL https://apiflowtracker.com/install.sh | sh
 ```
-
-**Windows** — download `browser-flow-tracker-windows-x64.exe` from the
-[latest release](https://github.com/devggaurav/web-Api-scrapper/releases/latest).
-
-Then add this to your MCP config (the installer prints the exact path):
-
+Then your MCP config command is (same path on every Mac/Linux machine):
 ```json
-{
-  "mcpServers": {
-    "browser-flow-tracker": {
-      "command": "/usr/local/bin/browser-flow-tracker"
-    }
-  }
-}
+{ "mcpServers": { "browser-flow-tracker": { "command": "/usr/local/bin/browser-flow-tracker" } } }
 ```
 
-That absolute path is the **same on every Mac/Linux box**, so there's no PATH guessing.
-Restart your AI app and you're done.
+**Windows** — in PowerShell:
+
+```powershell
+irm https://apiflowtracker.com/install.ps1 | iex
+```
+Then your MCP config command is the path the installer prints, e.g.:
+```json
+{ "mcpServers": { "browser-flow-tracker": { "command": "C:\\Users\\you\\AppData\\Local\\browser-flow-tracker\\browser-flow-tracker.exe" } } }
+```
+
+> The installer downloads the right build for your CPU automatically (Apple Silicon or
+> Intel Mac, x64 or arm64 Linux, x64 Windows). Restart your AI app after adding the config.
 
 ### Alternative: via npx (only if you already have Node.js)
 
