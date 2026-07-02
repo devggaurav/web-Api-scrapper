@@ -229,10 +229,40 @@ node bin/bft.js record --launch --browser brave \
 
 ## 🤖 Connecting to Claude / Cursor
 
-You give Claude/Cursor a tiny **settings snippet** that tells them how to run the tool.
-There's nothing to download — it runs straight from npm with `npx`.
+### ✅ Recommended: one-line install (no Node, works everywhere)
 
-### The one snippet you need
+The most reliable way — **no Node.js required**, and it avoids the `spawn npx ENOENT`
+PATH problems that trip up GUI apps. It installs a standalone binary to a fixed path
+your AI can always find.
+
+**macOS / Linux** — paste into Terminal:
+
+```bash
+curl -fsSL https://apiflowtracker.com/install.sh | sh
+```
+
+**Windows** — download `browser-flow-tracker-windows-x64.exe` from the
+[latest release](https://github.com/devggaurav/web-Api-scrapper/releases/latest).
+
+Then add this to your MCP config (the installer prints the exact path):
+
+```json
+{
+  "mcpServers": {
+    "browser-flow-tracker": {
+      "command": "/usr/local/bin/browser-flow-tracker"
+    }
+  }
+}
+```
+
+That absolute path is the **same on every Mac/Linux box**, so there's no PATH guessing.
+Restart your AI app and you're done.
+
+### Alternative: via npx (only if you already have Node.js)
+
+If Node 18+ is installed *and* on your app's PATH, you can skip the install and run it
+straight from npm:
 
 ```json
 {
@@ -245,30 +275,21 @@ There's nothing to download — it runs straight from npm with `npx`.
 }
 ```
 
-That's it — `npx` fetches and runs the tool automatically. It uses the browsers already
-installed on your computer; nothing extra to install.
+Claude Code shortcut: `claude mcp add browser-flow-tracker -- npx -y browser-flow-tracker@latest`
 
-### Where to put it
+> If you hit `spawn npx ENOENT`, your app can't see `npx` on its PATH — use the one-line
+> installer above instead; it sidesteps the whole issue.
 
-- **Claude Code (easiest):** run this one command and it's added everywhere:
+### Where the config file lives
 
-  ```bash
-  claude mcp add browser-flow-tracker -- npx -y browser-flow-tracker@latest
-  ```
-
-  (Or paste the snippet into a project's `.mcp.json`.)
-
-- **Cursor:** open your MCP settings file and add the `browser-flow-tracker` block, then
-  restart Cursor and enable it in **Settings → MCP**. Your config lives at
-  `.cursor/mcp.json` (per project) or `~/.cursor/mcp.json` (global, all projects).
+- **Claude Code:** `.mcp.json` in a project, or your user config (managed by `claude mcp`).
+- **Cursor:** `.cursor/mcp.json` (per project) or `~/.cursor/mcp.json` (global).
 
 > ⚠️ **Already using other MCP tools?** Don't replace your file — **add** the
 > `browser-flow-tracker` block *inside* your existing `mcpServers`, with a **comma** after
-> your previous tool. Valid JSON = matching `{ }` and commas between entries but not after
-> the last one. The `claude mcp add` command above does this merge for you automatically.
+> your previous tool. Keep it valid JSON (commas between entries, none after the last).
 
-Ready-made copies of the snippet are in this repo as `.mcp.json.example` and
-`.cursor/mcp.json.example`.
+Ready-made copies are in this repo as `.mcp.json.example` and `.cursor/mcp.json.example`.
 
 ### Prefer to run from source? (for the CLI or development)
 

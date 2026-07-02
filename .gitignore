@@ -7,6 +7,8 @@ recordings/
 .claude/launch.json
 .claude/static-server.mjs
 *.tgz
+# Compiled standalone binaries (built in CI, attached to GitHub Releases).
+dist/
 
 # Local MCP configs contain machine-specific absolute paths.
 # Copy the .example files and fill in your own path.

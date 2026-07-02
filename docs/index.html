@@ -180,22 +180,26 @@
 <section id="install">
   <div class="wrap">
     <h2>Install in 10 seconds</h2>
-    <p class="section-sub">Nothing to download. Add this to your Claude or Cursor MCP config — <code>npx</code> runs it from npm and uses the browsers you already have.</p>
+    <p class="section-sub">No Node.js, no PATH headaches. One command installs a standalone binary (macOS / Linux):</p>
     <div class="codeblock">
-      <button class="copy" onclick="copyCfg(this)">Copy</button>
+      <button class="copy" onclick="copyText(this, 'inst')">Copy</button>
+      <pre><code id="inst">curl -fsSL https://apiflowtracker.com/install.sh | sh</code></pre>
+    </div>
+    <p class="note">Windows: grab the <code>.exe</code> from the <a href="https://github.com/devggaurav/web-Api-scrapper/releases/latest">latest release</a>. The installer prints the exact config — add it to Claude/Cursor:</p>
+    <div class="codeblock">
+      <button class="copy" onclick="copyText(this, 'cfg')">Copy</button>
       <pre><code id="cfg">{
   "mcpServers": {
     "browser-flow-tracker": {
-      "command": "npx",
-      "args": ["-y", "browser-flow-tracker@latest"]
+      "command": "/usr/local/bin/browser-flow-tracker"
     }
   }
 }</code></pre>
     </div>
-    <p class="note">Claude Code shortcut: <code>claude mcp add browser-flow-tracker -- npx -y browser-flow-tracker@latest</code></p>
+    <p class="note">Already have Node? You can instead use <code>"command": "npx", "args": ["-y", "browser-flow-tracker@latest"]</code>.</p>
 
     <ol class="steps" style="margin-top: 34px;">
-      <li><b>Add the config</b> above and restart your AI app.</li>
+      <li><b>Install &amp; add the config</b> above, then restart your AI app.</li>
       <li><b>Say the phrase:</b> “let's record the session for this url …”. A real browser window opens.</li>
       <li><b>You navigate</b> the flow — log in if needed (remembered next time).</li>
       <li><b>Say “done” or close the browser.</b> The doc + JSON + HAR are written for you.</li>
@@ -226,8 +230,8 @@
 </footer>
 
 <script>
-  function copyCfg(btn) {
-    const text = document.getElementById('cfg').innerText;
+  function copyText(btn, id) {
+    const text = document.getElementById(id).innerText;
     navigator.clipboard.writeText(text).then(function () {
       const old = btn.textContent;
       btn.textContent = 'Copied ✓';
