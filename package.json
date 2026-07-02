@@ -41,7 +41,7 @@
   "bugs": {
     "url": "https://github.com/devggaurav/web-Api-scrapper/issues"
   },
-  "homepage": "https://github.com/devggaurav/web-Api-scrapper#readme",
+  "homepage": "https://devggaurav.github.io/web-Api-scrapper/",
   "publishConfig": {
     "access": "public"
   },
