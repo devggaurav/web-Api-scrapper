@@ -2,6 +2,9 @@
 
 [![npm version](https://img.shields.io/npm/v/browser-flow-tracker.svg)](https://www.npmjs.com/package/browser-flow-tracker)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![website](https://img.shields.io/badge/website-apiflowtracker.com-5eead4.svg)](https://apiflowtracker.com/)
+
+🌐 **Website: [apiflowtracker.com](https://apiflowtracker.com/)** — one-line install & quick start.
 
 ### *"What is this website actually doing behind the scenes?"*
 
@@ -424,3 +427,5 @@ can actually read. That's it. 🎩
 ---
 
 Made to save you from ever having to open the browser console again. Happy tracking! 🕵️‍♀️
+
+🌐 [apiflowtracker.com](https://apiflowtracker.com/) · 📦 [npm](https://www.npmjs.com/package/browser-flow-tracker) · 🐙 [GitHub](https://github.com/devggaurav/web-Api-scrapper)
