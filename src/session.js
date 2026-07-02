@@ -11,6 +11,7 @@ import { launchBrowser } from './browsers.js';
 import { normalize } from './normalize.js';
 import { toHar } from './exporters/har.js';
 import { toMarkdown } from './exporters/markdown.js';
+import { VERSION } from './version.js';
 
 function stamp() {
   // Filesystem-safe timestamp without relying on locale.
@@ -93,7 +94,10 @@ export class TrackingSession {
       ? (t) => t.url && t.url.includes(urlMatch)
       : undefined;
 
-    this.recorder = new CdpRecorder({ port, host, targetFilter });
+    // Launch mode: the whole window is ours, so record every tab in it
+    // (popups, OAuth windows, new tabs). Attach mode records the chosen tab
+    // plus any popups that tab opens.
+    this.recorder = new CdpRecorder({ port, host, targetFilter, attachAll: Boolean(launch) });
     // If the user closes the browser/tab, auto-finalize and write the files.
     this.recorder.onDisconnect = () => { this._onBrowserClosed(); };
     const info = await this.recorder.start();
@@ -141,7 +145,7 @@ export class TrackingSession {
     // return that result instead of erroring on a later explicit stop.
     if (this.finalized) return this.finalized;
     if (!this.recorder) throw new Error('Session not started.');
-    const raw = await this.recorder.stop();
+    const raw = await this.recorder.stop({ closeBrowser });
     this.active = false;
 
     const norm = normalize(raw.records, {
@@ -151,7 +155,7 @@ export class TrackingSession {
 
     const session = {
       tool: 'browser-flow-tracker',
-      version: '0.1.0',
+      version: VERSION,
       startedAt: raw.startedAt,
       stoppedAt: raw.stoppedAt,
       target: raw.target,
@@ -162,9 +166,11 @@ export class TrackingSession {
 
     let files = null;
     if (write) {
-      const dir = outDir || join(process.cwd(), 'recordings');
+      // Fall back to the defaults given at start_tracking time, so an
+      // explicit stop honors them the same way auto-finalize does.
+      const dir = outDir || this.opts.outDir || join(process.cwd(), 'recordings');
       mkdirSync(dir, { recursive: true });
-      const base = name || `flow-${stamp()}`;
+      const base = name || this.opts.name || `flow-${stamp()}`;
       const jsonPath = join(dir, `${base}.flow.json`);
       const harPath = join(dir, `${base}.har`);
       const mdPath = join(dir, `${base}.md`);
@@ -174,7 +180,9 @@ export class TrackingSession {
       files = { json: jsonPath, har: harPath, markdown: mdPath };
     }
 
-    if (closeBrowser && this.launched?.child) {
+    // Browser.close via CDP is preferred (works for reused windows too);
+    // killing the child we spawned is the fallback.
+    if (closeBrowser && !raw.browserClosed && this.launched?.child) {
       try { this.launched.child.kill(); } catch { /* ignore */ }
     }
 

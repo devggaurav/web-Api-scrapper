@@ -1,6 +1,8 @@
 // Minimal HAR 1.2 exporter so recordings can be opened in Chrome DevTools,
 // Charles, Insomnia, Postman, etc.
 
+import { VERSION } from '../version.js';
+
 function headerArray(headers) {
   return Object.entries(headers || {}).map(([name, value]) => ({ name, value: String(value) }));
 }
@@ -16,7 +18,9 @@ export function toHar(records, meta = {}) {
       const reqBody = r.requestBody;
       const resBody = r.responseBody;
       return {
-        startedDateTime: meta.startedAt || new Date(0).toISOString(),
+        // Per-request wall time so DevTools/Charles render a real waterfall
+        // instead of stacking everything at the session start.
+        startedDateTime: r.startedAt || meta.startedAt || new Date(0).toISOString(),
         time: r.durationMs || 0,
         request: {
           method: r.method || 'GET',
@@ -54,7 +58,7 @@ export function toHar(records, meta = {}) {
   return {
     log: {
       version: '1.2',
-      creator: { name: 'browser-flow-tracker', version: '0.1.0' },
+      creator: { name: 'browser-flow-tracker', version: VERSION },
       pages: [],
       entries,
     },

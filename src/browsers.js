@@ -30,15 +30,28 @@ const BINARIES = {
     opera: ['/usr/bin/opera'],
     chromium: ['/usr/bin/chromium', '/usr/bin/chromium-browser'],
   },
-  win32: {
-    brave: ['C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe'],
-    chrome: [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    ],
-    edge: ['C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'],
-  },
+  win32: winPaths(),
 };
+
+// Windows installs land in three different roots depending on the installer:
+// per-machine (Program Files), 32-bit legacy (Program Files (x86)), or
+// per-user (%LOCALAPPDATA%) — the per-user one is the most common for Chrome.
+function winPaths() {
+  const roots = [
+    process.env.PROGRAMFILES || 'C:\\Program Files',
+    process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
+    process.env.LOCALAPPDATA || '',
+  ].filter(Boolean);
+  const under = (suffix) => roots.map((r) => `${r}\\${suffix}`);
+  return {
+    brave: under('BraveSoftware\\Brave-Browser\\Application\\brave.exe'),
+    chrome: under('Google\\Chrome\\Application\\chrome.exe'),
+    edge: under('Microsoft\\Edge\\Application\\msedge.exe'),
+    vivaldi: under('Vivaldi\\Application\\vivaldi.exe'),
+    opera: under('Opera\\opera.exe').concat(under('Programs\\Opera\\opera.exe')),
+    chromium: under('Chromium\\Application\\chrome.exe'),
+  };
+}
 
 // Browsers that are Chromium-based but not covered here (Safari/WebKit,
 // Firefox/Gecko) do not expose CDP and need the proxy engine instead.

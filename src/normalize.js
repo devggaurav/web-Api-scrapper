@@ -1,20 +1,7 @@
 // Turns raw CDP records into a clean, ordered, API-focused flow.
 
 import { classify } from './filter.js';
-
-const SENSITIVE_HEADERS = new Set([
-  'authorization', 'cookie', 'set-cookie', 'x-api-key', 'x-auth-token',
-  'proxy-authorization', 'x-csrf-token',
-]);
-
-function redactHeaders(headers, redact) {
-  if (!headers) return {};
-  const out = {};
-  for (const [k, v] of Object.entries(headers)) {
-    out[k] = redact && SENSITIVE_HEADERS.has(k.toLowerCase()) ? '[redacted]' : v;
-  }
-  return out;
-}
+import { redactHeaders, redactQuery, redactBody } from './redact.js';
 
 function tryParseJson(body) {
   if (typeof body !== 'string') return undefined;
@@ -54,10 +41,11 @@ export function normalize(records, { includeNoise = false, redact = true } = {})
       url: rec.url,
       host,
       path,
-      query,
+      query: query ? redactQuery(query, redact) : undefined,
       resourceType: rec.resourceType,
       status: rec.status,
       statusText: rec.statusText,
+      startedAt: rec.wallTime ? new Date(rec.wallTime * 1000).toISOString() : undefined,
       durationMs: rec.durationMs != null ? Math.round(rec.durationMs) : undefined,
       sizeBytes: rec.encodedDataLength,
       fromCache: rec.fromCache || undefined,
@@ -65,17 +53,19 @@ export function normalize(records, { includeNoise = false, redact = true } = {})
       errorText: rec.errorText,
       initiator: rec.initiator?.type,
       redirects: rec.redirects,
+      tab: rec.tab, // 0-based tab index; >0 means a popup / new tab in the flow
+      tabUrl: rec.tab > 0 ? rec.tabUrl : undefined,
       requestHeaders: redactHeaders(rec.requestHeaders, redact),
       responseHeaders: redactHeaders(rec.responseHeaders, redact),
     };
 
     const reqJson = tryParseJson(rec.requestBody);
-    entry.requestBody = reqJson !== undefined ? reqJson : rec.requestBody;
+    entry.requestBody = redactBody(reqJson !== undefined ? reqJson : rec.requestBody, redact);
     entry.requestBodyIsJson = reqJson !== undefined;
 
     if (!rec.responseBodyBase64) {
       const resJson = tryParseJson(rec.responseBody);
-      entry.responseBody = resJson !== undefined ? resJson : rec.responseBody;
+      entry.responseBody = redactBody(resJson !== undefined ? resJson : rec.responseBody, redact);
       entry.responseBodyIsJson = resJson !== undefined;
       entry.responseBodyTruncated = rec.responseBodyTruncated || undefined;
     } else {

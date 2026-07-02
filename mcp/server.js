@@ -12,6 +12,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { TrackingSession } from '../src/session.js';
 import { detectInstalled } from '../src/browsers.js';
+import { VERSION } from '../src/version.js';
 
 let current = null; // the single active TrackingSession
 
@@ -23,7 +24,7 @@ function err(message) {
 }
 
 const server = new McpServer(
-  { name: 'browser-flow-tracker', version: '0.1.0' },
+  { name: 'browser-flow-tracker', version: VERSION },
   {
     instructions: [
       'Use these tools whenever the user wants to record, analyze, or document the',
@@ -124,7 +125,17 @@ server.registerTool(
     }
     if (!current?.active) return err('No active tracking session. Call start_tracking first.');
     const snap = current.snapshot();
-    if (full) return json(snap);
+    if (full) {
+      // Cap bodies so a long recording can't blow past MCP result limits —
+      // the complete detail always lands in the .flow.json on stop.
+      const MAX_INLINE_BODY = 4000;
+      const clip = (b) => {
+        const s = typeof b === 'string' ? b : b == null ? b : JSON.stringify(b);
+        return s && s.length > MAX_INLINE_BODY ? s.slice(0, MAX_INLINE_BODY) + '… [truncated]' : b;
+      };
+      snap.flow = snap.flow.map((e) => ({ ...e, requestBody: clip(e.requestBody), responseBody: clip(e.responseBody) }));
+      return json(snap);
+    }
     const summary = snap.flow
       .filter((e) => e.category !== 'document')
       .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs }));

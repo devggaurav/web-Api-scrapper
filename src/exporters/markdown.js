@@ -79,6 +79,7 @@ export function toMarkdown(session, options = {}) {
     lines.push(`### ${i + 1}. ${e.method} ${e.path}`);
     lines.push('');
     lines.push(`- **URL:** \`${e.url}\``);
+    if (e.tab > 0) lines.push(`- **Tab:** popup/new tab #${e.tab}${e.tabUrl ? ` (\`${e.tabUrl}\`)` : ''}`);
     lines.push(`- **Status:** ${e.failed ? `✗ ${e.errorText}` : `${e.status || ''} ${e.statusText || ''}`}`);
     if (e.durationMs != null) lines.push(`- **Duration:** ${e.durationMs}ms`);
     if (e.initiator) lines.push(`- **Initiated by:** ${e.initiator}`);

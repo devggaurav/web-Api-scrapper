@@ -117,8 +117,28 @@
   footer a { color: var(--muted); }
   .note { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 14px; }
 
+  /* Sample doc */
+  .sampledoc {
+    max-width: 720px; margin: 0 auto; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 26px 28px;
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: .88rem;
+  }
+  .sampledoc .sd-title { color: var(--accent2); font-weight: 700; font-size: 1.05rem; }
+  .sampledoc .sd-block { margin-top: 18px; }
+  .sampledoc .sd-h { color: var(--accent); font-weight: 600; margin-bottom: 6px; }
+  .sampledoc .sd-li { color: var(--muted); padding-left: 2px; }
+  .sampledoc .sd-li b { color: var(--text); font-weight: 600; }
+  .sampledoc code { color: var(--accent); background: rgba(94,234,212,.07); padding: 0 5px; border-radius: 4px; }
+  .sd-table { border-collapse: collapse; width: 100%; margin-top: 4px; }
+  .sd-table th, .sd-table td { text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--border); color: var(--muted); font-weight: 400; }
+  .sd-table th { color: var(--text); font-weight: 600; }
+  .sd-tag { font-size: .72rem; color: var(--accent2); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px; margin-left: 4px; }
+  .sd-code { margin-top: 6px; color: #cfe3ff; overflow-x: auto; }
+  .sd-red { color: #f6a5a5; }
+
   @media (max-width: 720px) {
     .grid, .grid.two { grid-template-columns: 1fr; }
+    .sampledoc { padding: 18px; overflow-x: auto; }
   }
 </style>
 </head>
@@ -177,6 +197,42 @@
   </div>
 </section>
 
+<section id="sample">
+  <div class="wrap">
+    <h2>What the doc looks like</h2>
+    <p class="section-sub">A slice of a real generated <code>.md</code> — overview, diagram, ordered call table, per-call detail.</p>
+    <div class="sampledoc">
+      <div class="sd-title"># Shop Checkout Flow</div>
+      <div class="sd-block">
+        <div class="sd-h">## Overview</div>
+        <div class="sd-li">- <b>API calls captured:</b> 6</div>
+        <div class="sd-li">- <b>Hosts:</b> <code>api.shop.com</code> (5), <code>pay.stripe.com</code> (1)</div>
+        <div class="sd-li">- <b>Status codes:</b> 200×5, 201×1</div>
+      </div>
+      <div class="sd-block">
+        <div class="sd-h">## Call sequence</div>
+        <table class="sd-table">
+          <tr><th>#</th><th>Method</th><th>Endpoint</th><th>Status</th><th>Time</th></tr>
+          <tr><td>1</td><td>GET</td><td><code>api.shop.com/products</code></td><td>200</td><td>121ms</td></tr>
+          <tr><td>2</td><td>POST</td><td><code>api.shop.com/cart/add</code></td><td>201</td><td>340ms</td></tr>
+          <tr><td>3</td><td>POST</td><td><code>api.shop.com/checkout</code></td><td>200</td><td>410ms</td></tr>
+          <tr><td>4</td><td>POST</td><td><code>pay.stripe.com/v1/payment_intents</code> <span class="sd-tag">popup</span></td><td>200</td><td>289ms</td></tr>
+        </table>
+      </div>
+      <div class="sd-block">
+        <div class="sd-h">### 3. POST /checkout</div>
+        <div class="sd-li"><b>Request body:</b></div>
+        <pre class="sd-code">{
+  "cart_id": "c_8123",
+  "email": "you@example.com",
+  "card_number": "<span class="sd-red">[redacted]</span>",
+  "cvv": "<span class="sd-red">[redacted]</span>"
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="install">
   <div class="wrap">
     <h2>Install in 10 seconds</h2>
@@ -222,9 +278,11 @@
     <p class="section-sub">It speaks the browser's own DevTools Protocol, then does the tedious parts for you.</p>
     <div class="grid two">
       <div class="card"><div class="ico">🧹</div><h3>Smart-filtered</h3><p>Drops images, fonts, CSS and analytics/telemetry (PostHog, GA4, RUM) so you see only the real API calls.</p></div>
-      <div class="card"><div class="ico">🔐</div><h3>Safe to share</h3><p>Auth headers, cookies and tokens are redacted by default. Log in once — the private profile remembers you.</p></div>
+      <div class="card"><div class="ico">🔐</div><h3>Safe to share</h3><p>Secrets are redacted everywhere they hide: auth headers &amp; cookies, <code>?token=…</code> URL params, and password/token fields inside request &amp; response bodies.</p></div>
       <div class="card"><div class="ico">🧭</div><h3>You drive</h3><p>The capture is user-driven: it records your real, authenticated flow instead of guessing. It never clicks for you.</p></div>
+      <div class="card"><div class="ico">🪟</div><h3>Popups included</h3><p>OAuth windows, payment popups and new tabs are attached automatically — paused at birth so not even their first request is missed.</p></div>
       <div class="card"><div class="ico">🌐</div><h3>Your browsers</h3><p>Works with Brave, Chrome, Arc, Edge and other Chromium browsers. Auto-picks a free debug port — no setup.</p></div>
+      <div class="card"><div class="ico">⏱️</div><h3>Real waterfall</h3><p>The HAR export carries true per-request timestamps — open it in DevTools, Postman or Charles and see the actual timeline.</p></div>
     </div>
   </div>
 </section>

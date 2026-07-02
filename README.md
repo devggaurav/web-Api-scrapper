@@ -77,8 +77,11 @@ Here's a taste of what ends up in your `.md` file:
 …plus the full request and response details for each call. 🎉
 
 It's smart, too: it **throws away the boring noise** (images, fonts, styling,
-tracking/analytics pixels) and keeps only the meaningful stuff. And it **hides your
-passwords and login tokens** by default so you can share the doc safely.
+tracking/analytics pixels) and keeps only the meaningful stuff. It **hides your
+secrets** by default — auth headers and cookies, *plus* password/token-style fields
+inside request & response bodies and URLs — so you can share the doc safely. And if
+your flow **opens a popup or a new tab** (an OAuth login, a payment window), that
+tab's API calls are captured too, in the same recording.
 
 ---
 
@@ -299,6 +302,7 @@ want to hack on the code:
 git clone https://github.com/devggaurav/web-Api-scrapper.git
 cd web-Api-scrapper
 npm install
+npm test   # unit tests (redaction, filtering, exporters)
 # MCP: point your config's command at "node" with args ["<full-path>/mcp/server.js"]
 # CLI: node bin/bft.js record --launch --browser brave --url https://example.com
 ```
@@ -385,8 +389,19 @@ Not yet 😔 — Safari and Firefox work differently under the hood. For now use
 Chrome, Arc, or Edge. (Safari support is on the roadmap.)
 
 **"Is it safe to share the document?"**
-By default, **yes** — passwords, cookies, and login tokens are automatically hidden.
-Only if you used `--no-redact` should you be careful.
+By default, **yes**. The tool redacts secrets in all three places they show up:
+auth/cookie headers, token-style URL parameters (`?token=…`, `?api_key=…`), and
+password/token-style fields inside JSON & form request/response bodies
+(`password`, `access_token`, `client_secret`, `otp`, card numbers, …). Field names
+it doesn't recognize as secrets are kept — so if an app uses an unusual name for a
+secret, skim the doc once before sharing. Only if you used `--no-redact` should you
+be careful.
+
+**"My flow opens a popup / new tab — is that captured?"**
+Yes. OAuth windows, payment popups, and "open in new tab" links are attached to
+automatically (they're even paused for a split second at birth so their very first
+request isn't missed). Their calls appear in the same document, marked with the tab
+they came from.
 
 ---
 
@@ -403,7 +418,6 @@ can actually read. That's it. 🎩
 ## 🗺️ Roadmap (coming later)
 
 - 🧭 Safari & Firefox support (via a different listening method)
-- 🪟 Watch multiple browser tabs at once
 - 🔀 "Diff" mode — compare two recordings to see what changed
 - 🧩 Auto-group calls into logical steps in the doc
 
