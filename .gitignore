@@ -3,6 +3,10 @@ recordings/
 *.log
 .DS_Store
 .claude/settings.local.json
+# Local preview scaffolding for the landing page (not needed to build/deploy the site).
+.claude/launch.json
+.claude/static-server.mjs
+*.tgz
 
 # Local MCP configs contain machine-specific absolute paths.
 # Copy the .example files and fill in your own path.

@@ -1,5 +1,8 @@
 # 🕵️ browser-flow-tracker
 
+[![npm version](https://img.shields.io/npm/v/browser-flow-tracker.svg)](https://www.npmjs.com/package/browser-flow-tracker)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ### *"What is this website actually doing behind the scenes?"*
 
 You know that feeling when you click a button on a website and a bunch of invisible
@@ -80,6 +83,10 @@ passwords and login tokens** by default so you can share the doc safely.
 ---
 
 ## 🚀 First-time setup (do this once)
+
+> ✅ **Using it through Claude or Cursor?** You can skip this whole section — just add the
+> tiny config in [Connecting to Claude / Cursor](#-connecting-to-claude--cursor) and `npx`
+> handles the rest. The steps below are only for the **Terminal / `bft` command** usage.
 
 You need this **one-time** setup. It's two steps.
 
@@ -222,101 +229,62 @@ node bin/bft.js record --launch --browser brave \
 
 ## 🤖 Connecting to Claude / Cursor
 
-To let Claude or Cursor use this tool, you need to give them a small **settings file**
-that tells them where the tool lives on your computer. The folder already includes
-**ready-made templates** for these — you just make your own copy and fill in your path.
+You give Claude/Cursor a tiny **settings snippet** that tells them how to run the tool.
+There's nothing to download — it runs straight from npm with `npx`.
 
-Here's exactly what to do:
-
-**Step 1 — Make your own settings files from the templates.**
-
-A template file ends in `.example`. You'll make a real copy of it (without `.example`).
-Paste these two lines into Terminal (make sure you've `cd`'d into the tool's folder first):
-
-```bash
-cp .mcp.json.example .mcp.json                # creates the settings file for Claude Code
-cp .cursor/mcp.json.example .cursor/mcp.json  # creates the settings file for Cursor
-```
-
-> 💡 **What does `cp` mean?** It's short for "copy". `cp A B` means *"make a copy of
-> file A and call it B"*. So the first line copies the template `.mcp.json.example`
-> into a new file called `.mcp.json`. You're not deleting anything — just duplicating
-> the template so you have your own version to edit.
-
-> ⚠️ **Already using other MCP tools in Claude or Cursor?** **Do NOT run the `cp`
-> commands above** — they would overwrite your existing `.mcp.json` / `.cursor/mcp.json`
-> and wipe out your other tools. Instead, *merge* this one in — see
-> [Adding it alongside tools you already have](#-adding-it-alongside-tools-you-already-have)
-> just below.
-
-**Step 2 — Put your real folder path into each new file.**
-
-Open the two files you just created (`.mcp.json` and `.cursor/mcp.json`) in any text
-editor. Inside, you'll see this placeholder:
-
-```
-/full/path/to/browser-flow-tracker/mcp/server.js
-```
-
-Replace `/full/path/to/browser-flow-tracker` with the actual location of this folder
-on *your* machine. (Quick way to get it: in Terminal, `cd` into the folder and run
-`pwd` — it prints the full path. Copy that.) Save both files.
-
-**Step 3 — Turn it on.**
-
-- **Claude Code:** open this folder in Claude Code and approve the
-  `browser-flow-tracker` tool when it asks. Or connect it everywhere with one command
-  (again, swap in your real path):
-
-```bash
-claude mcp add browser-flow-tracker -- node /full/path/to/browser-flow-tracker/mcp/server.js
-```
-
-- **Cursor:** restart Cursor, go to **Settings → MCP**, and switch on
-  `browser-flow-tracker`.
-
-That's it — now just talk to it (see [Way 1](#way-1-️-just-ask-claude-or-cursor-easiest--zero-commands)).
-
-### ➕ Adding it alongside tools you already have
-
-If you've **already** got MCP tools set up (so a `.mcp.json` / `.cursor/mcp.json` or a
-Cursor config already exists), you want to **add** this tool to that list — not replace it.
-
-**Easiest way for Claude Code — one command that merges automatically:**
-
-```bash
-claude mcp add browser-flow-tracker -- node /full/path/to/browser-flow-tracker/mcp/server.js
-```
-
-This safely appends `browser-flow-tracker` to whatever you already have. (Swap in your
-real path — run `pwd` inside the folder to get it.)
-
-**Doing it by hand (Claude Code or Cursor):** open your existing settings file and add
-just the `browser-flow-tracker` block inside the `mcpServers` section you already have.
-The trick is the **comma** after your previous tool. It should end up looking like this:
+### The one snippet you need
 
 ```json
 {
   "mcpServers": {
-    "your-existing-tool": {
-      "command": "...",
-      "args": ["..."]
-    },
     "browser-flow-tracker": {
-      "command": "node",
-      "args": ["/full/path/to/browser-flow-tracker/mcp/server.js"]
+      "command": "npx",
+      "args": ["-y", "browser-flow-tracker@latest"]
     }
   }
 }
 ```
 
-> 💡 Every tool lives as its own entry inside the one shared `mcpServers` block, each
-> separated by a comma. As long as the file stays valid JSON (matching `{ }` braces,
-> commas between entries but **not** after the last one), all your tools work together.
+That's it — `npx` fetches and runs the tool automatically. It uses the browsers already
+installed on your computer; nothing extra to install.
 
-Where these files live, in case you're hunting for an existing one:
-- **Claude Code:** `.mcp.json` in a project folder, or your user-level config (managed by `claude mcp`).
-- **Cursor:** `.cursor/mcp.json` in a project folder, or the global `~/.cursor/mcp.json`.
+### Where to put it
+
+- **Claude Code (easiest):** run this one command and it's added everywhere:
+
+  ```bash
+  claude mcp add browser-flow-tracker -- npx -y browser-flow-tracker@latest
+  ```
+
+  (Or paste the snippet into a project's `.mcp.json`.)
+
+- **Cursor:** open your MCP settings file and add the `browser-flow-tracker` block, then
+  restart Cursor and enable it in **Settings → MCP**. Your config lives at
+  `.cursor/mcp.json` (per project) or `~/.cursor/mcp.json` (global, all projects).
+
+> ⚠️ **Already using other MCP tools?** Don't replace your file — **add** the
+> `browser-flow-tracker` block *inside* your existing `mcpServers`, with a **comma** after
+> your previous tool. Valid JSON = matching `{ }` and commas between entries but not after
+> the last one. The `claude mcp add` command above does this merge for you automatically.
+
+Ready-made copies of the snippet are in this repo as `.mcp.json.example` and
+`.cursor/mcp.json.example`.
+
+### Prefer to run from source? (for the CLI or development)
+
+You don't need this for the AI use case, but if you want the `bft` command-line tool or
+want to hack on the code:
+
+```bash
+git clone https://github.com/devggaurav/web-Api-scrapper.git
+cd web-Api-scrapper
+npm install
+# MCP: point your config's command at "node" with args ["<full-path>/mcp/server.js"]
+# CLI: node bin/bft.js record --launch --browser brave --url https://example.com
+```
+
+---
+
 Behind the scenes it has four skills it uses automatically:
 
 | Skill | What it does |

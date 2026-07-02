@@ -1,17 +1,49 @@
 {
   "name": "browser-flow-tracker",
   "version": "0.1.0",
-  "description": "Record and document the API flow of any Chromium browser page (Brave, Chrome, Arc, Edge) via the Chrome DevTools Protocol. Emits structured JSON + HAR + a Markdown flow-doc for Claude/Cursor.",
+  "description": "Record and document the API flow of any Chromium browser page (Brave, Chrome, Arc, Edge) via the Chrome DevTools Protocol. Ships as a local MCP server for Claude/Cursor and a CLI. Emits structured JSON + HAR + a Markdown flow-doc.",
   "type": "module",
   "bin": {
+    "browser-flow-tracker": "mcp/server.js",
     "bft": "bin/bft.js"
   },
+  "files": [
+    "bin",
+    "mcp",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node bin/bft.js",
     "mcp": "node mcp/server.js"
   },
   "engines": {
     "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "cursor",
+    "api",
+    "network",
+    "cdp",
+    "chrome-devtools-protocol",
+    "har",
+    "network-flow",
+    "api-documentation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/devggaurav/web-Api-scrapper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devggaurav/web-Api-scrapper/issues"
+  },
+  "homepage": "https://github.com/devggaurav/web-Api-scrapper#readme",
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "chrome-remote-interface": "^0.33.3",

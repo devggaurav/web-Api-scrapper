@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>browser-flow-tracker — see what APIs any page calls</title>
+<meta name="description" content="Record and document the API/network flow of any web page. You click through, it writes the docs. A local MCP server for Claude & Cursor, plus a CLI." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>" />
+<!-- Open Graph -->
+<meta property="og:type" content="website" />
+<meta property="og:title" content="browser-flow-tracker" />
+<meta property="og:description" content="See exactly what APIs any web page calls — recorded as you click, documented for you." />
+<meta property="og:url" content="https://github.com/devggaurav/web-Api-scrapper" />
+<style>
+  :root {
+    --bg: #0b0e14;
+    --bg2: #11161f;
+    --card: #151b26;
+    --border: #232c3b;
+    --text: #e6ebf2;
+    --muted: #97a3b6;
+    --accent: #5eead4;
+    --accent2: #7c93ff;
+    --code-bg: #0d1220;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 600px at 70% -10%, #16324a55, transparent), var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  /* Nav */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px; max-width: 960px; margin: 0 auto;
+  }
+  nav .brand { font-weight: 700; font-size: 1.05rem; letter-spacing: -0.01em; }
+  nav .links { display: flex; gap: 18px; align-items: center; font-size: .95rem; }
+  nav .links a { color: var(--muted); }
+  nav .links a:hover { color: var(--text); text-decoration: none; }
+
+  /* Hero */
+  header { text-align: center; padding: 60px 0 40px; }
+  .badge {
+    display: inline-block; font-size: .8rem; color: var(--accent);
+    border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px;
+    background: var(--bg2); margin-bottom: 22px;
+  }
+  h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); line-height: 1.1; letter-spacing: -0.03em; }
+  h1 .grad {
+    background: linear-gradient(100deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .sub { color: var(--muted); font-size: clamp(1.05rem, 2.5vw, 1.3rem); max-width: 640px; margin: 20px auto 0; }
+  .cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
+  .btn {
+    display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600;
+    border: 1px solid var(--border); color: var(--text); background: var(--card);
+  }
+  .btn:hover { text-decoration: none; border-color: var(--accent); }
+  .btn.primary { background: linear-gradient(100deg, var(--accent), var(--accent2)); color: #06121a; border: none; }
+
+  /* Trigger phrase */
+  .trigger {
+    margin: 44px auto 0; max-width: 720px; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 22px 24px;
+  }
+  .trigger .label { color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; }
+  .trigger .phrase { font-size: 1.15rem; margin-top: 8px; }
+  .trigger .phrase b { color: var(--accent); }
+
+  section { padding: 46px 0; }
+  h2 { font-size: 1.6rem; letter-spacing: -0.02em; margin-bottom: 8px; text-align: center; }
+  .section-sub { color: var(--muted); text-align: center; max-width: 620px; margin: 0 auto 30px; }
+
+  /* Cards */
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(3, 1fr); }
+  .grid.two { grid-template-columns: repeat(2, 1fr); }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px;
+  }
+  .card .ico { font-size: 1.6rem; }
+  .card h3 { font-size: 1.05rem; margin: 10px 0 6px; }
+  .card p { color: var(--muted); font-size: .95rem; }
+  .card code { color: var(--accent); background: var(--code-bg); padding: 1px 6px; border-radius: 5px; font-size: .85rem; }
+
+  /* Code block */
+  .codeblock { position: relative; background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius); margin-top: 8px; }
+  .codeblock pre { padding: 20px; overflow-x: auto; font-size: .9rem; }
+  .codeblock code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; color: #cfe3ff; white-space: pre; }
+  .copy {
+    position: absolute; top: 10px; right: 10px; background: var(--card); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: .82rem; cursor: pointer;
+  }
+  .copy:hover { color: var(--text); border-color: var(--accent); }
+
+  /* Steps */
+  ol.steps { max-width: 680px; margin: 0 auto; list-style: none; counter-reset: s; }
+  ol.steps li { position: relative; padding: 0 0 18px 46px; counter-increment: s; color: var(--muted); }
+  ol.steps li::before {
+    content: counter(s); position: absolute; left: 0; top: -2px; width: 30px; height: 30px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 50%;
+    display: grid; place-items: center; color: var(--accent); font-weight: 700; font-size: .9rem;
+  }
+  ol.steps li b { color: var(--text); }
+
+  footer { border-top: 1px solid var(--border); padding: 30px 0 50px; text-align: center; color: var(--muted); font-size: .9rem; }
+  footer a { color: var(--muted); }
+  .note { color: var(--muted); font-size: .85rem; text-align: center; margin-top: 14px; }
+
+  @media (max-width: 720px) {
+    .grid, .grid.two { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">🕵️ browser-flow-tracker</span>
+  <span class="links">
+    <a href="https://github.com/devggaurav/web-Api-scrapper">GitHub</a>
+    <a href="https://www.npmjs.com/package/browser-flow-tracker">npm</a>
+    <a href="#install">Install</a>
+  </span>
+</nav>
+
+<header class="wrap">
+  <span class="badge">Local MCP server for Claude &amp; Cursor + CLI</span>
+  <h1>See what APIs a page calls —<br /><span class="grad">recorded as you click.</span></h1>
+  <p class="sub">
+    Stop squinting at the DevTools Network tab. browser-flow-tracker watches a page while
+    <em>you</em> navigate, filters out the noise, and hands you a clean document of every
+    API call — with a sequence diagram.
+  </p>
+  <div class="cta">
+    <a class="btn primary" href="#install">Get started</a>
+    <a class="btn" href="https://github.com/devggaurav/web-Api-scrapper">View on GitHub</a>
+  </div>
+
+  <div class="trigger">
+    <div class="label">Just say to your AI</div>
+    <div class="phrase">“let's record the session for this url <b>https://your-app.com</b>”</div>
+  </div>
+  <p class="note">A browser opens, you click through the real flow, then say <b>done</b> — or just close the window. Files are written automatically.</p>
+</header>
+
+<section id="get">
+  <div class="wrap">
+    <h2>What you get</h2>
+    <p class="section-sub">Every recording writes three files. The one you read is the Markdown doc.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="ico">📄</div>
+        <h3><code>.md</code> flow doc</h3>
+        <p>A readable write-up: overview, a Mermaid sequence diagram, an ordered call table, and per-call detail.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🤖</div>
+        <h3><code>.flow.json</code></h3>
+        <p>Structured, ordered data with request/response bodies — for Claude/Cursor to build even richer docs.</p>
+      </div>
+      <div class="card">
+        <div class="ico">🔧</div>
+        <h3><code>.har</code></h3>
+        <p>Standard HAR 1.2 — open it in Chrome DevTools, Postman, Insomnia or Charles.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Install in 10 seconds</h2>
+    <p class="section-sub">Nothing to download. Add this to your Claude or Cursor MCP config — <code>npx</code> runs it from npm and uses the browsers you already have.</p>
+    <div class="codeblock">
+      <button class="copy" onclick="copyCfg(this)">Copy</button>
+      <pre><code id="cfg">{
+  "mcpServers": {
+    "browser-flow-tracker": {
+      "command": "npx",
+      "args": ["-y", "browser-flow-tracker@latest"]
+    }
+  }
+}</code></pre>
+    </div>
+    <p class="note">Claude Code shortcut: <code>claude mcp add browser-flow-tracker -- npx -y browser-flow-tracker@latest</code></p>
+
+    <ol class="steps" style="margin-top: 34px;">
+      <li><b>Add the config</b> above and restart your AI app.</li>
+      <li><b>Say the phrase:</b> “let's record the session for this url …”. A real browser window opens.</li>
+      <li><b>You navigate</b> the flow — log in if needed (remembered next time).</li>
+      <li><b>Say “done” or close the browser.</b> The doc + JSON + HAR are written for you.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2>Why it's better than the console</h2>
+    <p class="section-sub">It speaks the browser's own DevTools Protocol, then does the tedious parts for you.</p>
+    <div class="grid two">
+      <div class="card"><div class="ico">🧹</div><h3>Smart-filtered</h3><p>Drops images, fonts, CSS and analytics/telemetry (PostHog, GA4, RUM) so you see only the real API calls.</p></div>
+      <div class="card"><div class="ico">🔐</div><h3>Safe to share</h3><p>Auth headers, cookies and tokens are redacted by default. Log in once — the private profile remembers you.</p></div>
+      <div class="card"><div class="ico">🧭</div><h3>You drive</h3><p>The capture is user-driven: it records your real, authenticated flow instead of guessing. It never clicks for you.</p></div>
+      <div class="card"><div class="ico">🌐</div><h3>Your browsers</h3><p>Works with Brave, Chrome, Arc, Edge and other Chromium browsers. Auto-picks a free debug port — no setup.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>
+    <a href="https://github.com/devggaurav/web-Api-scrapper">GitHub</a> ·
+    <a href="https://www.npmjs.com/package/browser-flow-tracker">npm</a> ·
+    MIT licensed
+  </p>
+  <p style="margin-top:10px;">Runs locally on your machine. Safari &amp; Firefox support is on the roadmap.</p>
+</footer>
+
+<script>
+  function copyCfg(btn) {
+    const text = document.getElementById('cfg').innerText;
+    navigator.clipboard.writeText(text).then(function () {
+      const old = btn.textContent;
+      btn.textContent = 'Copied ✓';
+      setTimeout(function () { btn.textContent = old; }, 1600);
+    });
+  }
+</script>
+</body>
+</html>
