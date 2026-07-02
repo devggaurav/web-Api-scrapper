@@ -1,4 +1,6 @@
-# 🕵️ browser-flow-tracker
+# 🕵️ API Flow Tracker
+
+*(ships as the [`browser-flow-tracker`](https://www.npmjs.com/package/browser-flow-tracker) package on npm)*
 
 [![npm version](https://img.shields.io/npm/v/browser-flow-tracker.svg)](https://www.npmjs.com/package/browser-flow-tracker)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
