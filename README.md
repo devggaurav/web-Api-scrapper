@@ -8,21 +8,59 @@
 
 🌐 **Website: [apiflowtracker.com](https://apiflowtracker.com/)** — one-line install & quick start.
 
+**A local MCP server for Claude & Cursor that records the API flow of any web page —
+as *you* click through it — and turns it into documentation.**
+
+Just say to your AI:
+
+> ### 🗣️ *"let's record the session for this url `https://your-app.com`"*
+
+A real browser window opens → **you** navigate the flow (log in, click around) → say
+**"done"** or close the window → you get a clean **Markdown flow doc** (with a sequence
+diagram), a structured **`.flow.json`**, and a standard **`.har`** — noise filtered,
+secrets redacted.
+
+## ⚡ Quick start (MCP)
+
+**1. Install** — one line, no Node.js required:
+
+```bash
+# macOS & Linux (Terminal)
+curl -fsSL https://apiflowtracker.com/install.sh | sh
+```
+```powershell
+# Windows (PowerShell)
+irm https://apiflowtracker.com/install.ps1 | iex
+```
+
+**2. Add to Claude Code / Cursor** (the installer prints your exact path):
+
+```json
+{
+  "mcpServers": {
+    "browser-flow-tracker": {
+      "command": "/usr/local/bin/browser-flow-tracker"
+    }
+  }
+}
+```
+
+**3. Restart your AI app and say the phrase.** That's the whole setup — details, npx
+alternative, and where the config lives are in
+[Connecting to Claude / Cursor](#-connecting-to-claude--cursor).
+
+---
+
 ### *"What is this website actually doing behind the scenes?"*
 
 You know that feeling when you click a button on a website and a bunch of invisible
-stuff happens — data flies back and forth, APIs get called, magic occurs — but you
-have **no idea what's going on** unless you open the scary black DevTools console and
-squint at a wall of text?
+stuff happens — APIs get called, magic occurs — but you have **no idea what's going on**
+unless you open the scary black DevTools console and squint at a wall of text?
 
-**This tool is your spy. 🔍**
-
-It quietly watches a web page while you click around, notes down every important
-conversation the page has with its servers (the "APIs"), and then hands you a
-**clean, human-readable document** explaining the whole flow — complete with a
-diagram. No more squinting. No more console.
-
-You can use it **by typing one command**, or just **ask Claude / Cursor to do it for you**.
+**This tool is your spy. 🔍** It watches the page while you click, notes down every API
+conversation in order, and hands you a readable document with a diagram. No more
+squinting. No more console. (Prefer the terminal? There's a
+[CLI](#way-2--let-the-tool-open-a-browser-for-you-terminal) too.)
 
 ---
 
