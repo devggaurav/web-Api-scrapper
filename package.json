@@ -1,6 +1,6 @@
 {
   "name": "browser-flow-tracker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Record and document the API flow of any Chromium browser page (Brave, Chrome, Arc, Edge) via the Chrome DevTools Protocol. Ships as a local MCP server for Claude/Cursor and a CLI. Emits structured JSON + HAR + a Markdown flow-doc.",
   "type": "module",
   "bin": {

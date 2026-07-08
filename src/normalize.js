@@ -1,6 +1,6 @@
 // Turns raw CDP records into a clean, ordered, API-focused flow.
 
-import { classify } from './filter.js';
+import { classify, registrableDomain } from './filter.js';
 import { redactHeaders, redactQuery, redactBody } from './redact.js';
 
 function tryParseJson(body) {
@@ -19,24 +19,53 @@ function splitUrl(url) {
   }
 }
 
+// The sites the recording is "about": either an explicit scope given by the
+// user, or auto-detected from the pages actually navigated to (Document
+// requests + tab URLs). Kept API calls outside these sites are flagged
+// thirdParty so the doc can separate them from the core flow.
+function sessionSites(records, scopeHosts) {
+  const sites = new Set();
+  if (scopeHosts?.length) {
+    for (const h of scopeHosts) {
+      const host = String(h).replace(/^https?:\/\//, '').split('/')[0];
+      const site = registrableDomain(host);
+      if (site) sites.add(site);
+    }
+    return sites;
+  }
+  for (const rec of records) {
+    const urls = [rec.resourceType === 'Document' ? rec.url : undefined, rec.tabUrl];
+    for (const u of urls) {
+      if (!u) continue;
+      try {
+        const site = registrableDomain(new URL(u).hostname);
+        if (site) sites.add(site);
+      } catch { /* about:blank etc. */ }
+    }
+  }
+  return sites;
+}
+
 /**
  * @param {Array} records raw records from CdpRecorder
- * @param {object} opts { includeNoise, redact }
+ * @param {object} opts { includeNoise, redact, scopeHosts }
  * @returns { flow, dropped, stats }
  */
-export function normalize(records, { includeNoise = false, redact = true } = {}) {
+export function normalize(records, { includeNoise = false, redact = true, scopeHosts } = {}) {
   const flow = [];
   const dropped = [];
   const hostCounts = {};
   const statusCounts = {};
+  const sites = sessionSites(records, scopeHosts);
 
   for (const rec of records) {
     if (!rec.url) continue;
-    const c = classify(rec);
+    const c = classify(rec, { sessionSites: sites });
     const { host, path, query } = splitUrl(rec.url);
     const entry = {
       index: rec.index,
       category: c.category,
+      thirdParty: c.firstParty === false ? true : undefined,
       method: rec.method || 'GET',
       url: rec.url,
       host,
@@ -85,13 +114,34 @@ export function normalize(records, { includeNoise = false, redact = true } = {})
     }
   }
 
+  // Tag repeated calls to the same endpoint (polling) so exporters can
+  // collapse them. Keyed on method + host + path — query values (timestamps,
+  // cursors, cache-busters) are deliberately ignored.
+  const repeatCounts = new Map();
+  for (const e of flow) {
+    if (e.category !== 'api' || e.filteredReason) continue;
+    const key = `${e.method} ${e.host}${e.path}`;
+    repeatCounts.set(key, (repeatCounts.get(key) || 0) + 1);
+  }
+  for (const e of flow) {
+    if (e.category !== 'api' || e.filteredReason) continue;
+    const key = `${e.method} ${e.host}${e.path}`;
+    if (repeatCounts.get(key) > 1) {
+      e.repeatKey = key;
+      e.repeatCount = repeatCounts.get(key);
+    }
+  }
+
+  const kept = flow.filter((e) => !e.filteredReason);
   return {
     flow,
     dropped,
     stats: {
       totalCaptured: records.length,
-      kept: flow.filter((e) => !e.filteredReason).length,
+      kept: kept.length,
+      thirdParty: kept.filter((e) => e.thirdParty).length,
       droppedCount: dropped.length,
+      sessionSites: [...sites],
       byHost: hostCounts,
       byStatus: statusCounts,
     },

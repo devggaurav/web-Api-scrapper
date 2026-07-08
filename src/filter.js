@@ -25,7 +25,28 @@ const ANALYTICS_HOSTS = [
 
 // Analytics/telemetry that hits a FIRST-PARTY host (so host matching misses it):
 // e.g. Google Analytics' /g/collect, Cloudflare RUM's /cdn-cgi/rum. Matched on path.
-const ANALYTICS_PATH_RE = /\/cdn-cgi\/(rum|beacon)|\/g\/collect|\/j\/collect|\/mp\/collect|\/gtag\/|\/gtm\.js|\/piwik\.php|\/matomo\.php|\/b\/ss\//i;
+// Deliberately conservative — an app's real API named /events must NOT vanish;
+// anything dropped is still listed in `dropped` with its reason.
+const ANALYTICS_PATH_RE = /\/cdn-cgi\/(rum|beacon)|\/g\/collect|\/j\/collect|\/mp\/collect|\/gtag\/|\/gtm\.js|\/piwik\.php|\/matomo\.php|\/b\/ss\/|\/csp-report(\/|\?|$)|\/api\/\d+\/envelope(\/|\?|$)|\/api\/(analytics|telemetry|rum)(\/|\?|$)|\/beacon(\/|\?|$)|\/intake\/v2\/rum(\/|\?|$)/i;
+
+// Two-part public suffixes we're likely to meet; enough for a registrable-domain
+// heuristic without pulling in the full public-suffix list.
+const TWO_PART_TLDS = new Set([
+  'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'com.au', 'net.au', 'org.au',
+  'co.nz', 'co.in', 'co.jp', 'ne.jp', 'or.jp', 'com.br', 'com.mx',
+  'com.sg', 'com.hk', 'co.za', 'com.ar', 'com.tr', 'co.kr', 'com.cn',
+]);
+
+// "app.foo.co.uk" -> "foo.co.uk", "api.foo.com" -> "foo.com".
+// IP literals (and IPv6 like "[::1]") are returned whole — no subdomains there.
+export function registrableDomain(host) {
+  const h = String(host || '').toLowerCase();
+  if (h.startsWith('[') || /^[\d.]+$/.test(h)) return h;
+  const parts = h.split('.').filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  const take = TWO_PART_TLDS.has(parts.slice(-2).join('.')) ? 3 : 2;
+  return parts.slice(-take).join('.');
+}
 
 // Google Analytics / Measurement Protocol requests carry a tid=G-/UA-/GT- id.
 function looksLikeGoogleAnalytics(query) {
@@ -35,9 +56,13 @@ function looksLikeGoogleAnalytics(query) {
 
 /**
  * Decide whether a request is "API-relevant".
- * Returns { keep: boolean, reason: string, category: string }.
+ * @param {object} req raw record ({ resourceType, url })
+ * @param {object} ctx optional { sessionSites: Set<registrable domain> } — the
+ *   sites the user actually visited; kept calls to other hosts are flagged
+ *   firstParty: false so exporters can separate them.
+ * Returns { keep: boolean, reason: string, category: string, firstParty?: boolean }.
  */
-export function classify(req) {
+export function classify(req, ctx = {}) {
   const type = req.resourceType || '';
   const url = req.url || '';
   let host = '';
@@ -52,6 +77,9 @@ export function classify(req) {
     // non-URL (data:, blob:) — always noise for our purposes
     return { keep: false, reason: 'non-http scheme', category: 'other' };
   }
+  const firstParty = ctx.sessionSites?.size
+    ? ctx.sessionSites.has(registrableDomain(host))
+    : true;
 
   if (url.startsWith('data:') || url.startsWith('blob:')) {
     return { keep: false, reason: 'inline resource', category: 'other' };
@@ -75,15 +103,15 @@ export function classify(req) {
   // Keep XHR/Fetch (the classic API calls), WebSockets, EventSource, and the
   // top-level document navigation (useful context for where a flow starts).
   if (type === 'XHR' || type === 'Fetch') {
-    return { keep: true, reason: 'xhr/fetch', category: 'api' };
+    return { keep: true, reason: 'xhr/fetch', category: 'api', firstParty };
   }
-  if (type === 'WebSocket') return { keep: true, reason: 'websocket', category: 'websocket' };
-  if (type === 'EventSource') return { keep: true, reason: 'server-sent events', category: 'sse' };
-  if (type === 'Document') return { keep: true, reason: 'navigation', category: 'document' };
+  if (type === 'WebSocket') return { keep: true, reason: 'websocket', category: 'websocket', firstParty };
+  if (type === 'EventSource') return { keep: true, reason: 'server-sent events', category: 'sse', firstParty };
+  if (type === 'Document') return { keep: true, reason: 'navigation', category: 'document', firstParty };
 
   // GraphQL / JSON endpoints sometimes come through as "Other".
   if (/graphql|\/api\/|\/v\d+\//i.test(path)) {
-    return { keep: true, reason: 'looks like an api path', category: 'api' };
+    return { keep: true, reason: 'looks like an api path', category: 'api', firstParty };
   }
   return { keep: false, reason: `type ${type || 'unknown'}`, category: 'other' };
 }

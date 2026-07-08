@@ -49,13 +49,19 @@ export class CdpRecorder {
    *                     appears (launch mode: the whole window is ours).
    *                     When false (attach mode), only the filtered/first tab
    *                     plus popups OPENED BY a recorded tab are captured.
+   *   freshContext    - start from a clean slate: open a fresh tab for this
+   *                     session and close every pre-existing tab, so leftover
+   *                     pages from a previous recording (background polling,
+   *                     token refresh, websockets) can't leak into this one.
+   *                     Login is unaffected — it lives in the profile.
    */
-  constructor({ port = 9222, host = 'localhost', maxBodyBytes = DEFAULT_MAX_BODY, targetFilter, attachAll = false } = {}) {
+  constructor({ port = 9222, host = 'localhost', maxBodyBytes = DEFAULT_MAX_BODY, targetFilter, attachAll = false, freshContext = false } = {}) {
     this.port = port;
     this.host = host;
     this.maxBodyBytes = maxBodyBytes;
     this.targetFilter = targetFilter;
     this.attachAll = attachAll;
+    this.freshContext = freshContext;
     this.client = null; // single browser-level connection
     this.sessions = new Map(); // sessionId -> tab {index, targetId, url}
     this.tabTargetIds = new Set(); // targetIds we record (for openerId checks)
@@ -79,7 +85,6 @@ export class CdpRecorder {
     if (!this.attachAll && !this.targetFilter) chosen = pages.slice(0, 1);
     if (!chosen.length) chosen = pages.slice(0, 1);
     if (!chosen.length) throw new Error('No suitable page target to attach to.');
-    for (const t of chosen) this.wantedTargetIds.add(t.id);
 
     const version = await CDP.Version({ port: this.port, host: this.host });
     if (!version.webSocketDebuggerUrl) {
@@ -103,6 +108,20 @@ export class CdpRecorder {
     client.on('Target.attachedToTarget', (p) => { this._onAttached(p).catch(() => {}); });
     client.on('Target.detachedFromTarget', ({ sessionId }) => this._onDetached(sessionId));
 
+    if (this.freshContext) {
+      // Clean slate: this session records ONLY a fresh tab (plus anything it
+      // opens). Close every pre-existing tab so pages left over from an
+      // earlier recording can't leak their traffic into this one. Created
+      // before setAutoAttach so we attach to it explicitly, exactly once.
+      const { targetId } = await client.Target.createTarget({ url: 'about:blank' });
+      for (const t of pages) {
+        if (t.id === targetId) continue;
+        try { await client.Target.closeTarget({ targetId: t.id }); } catch { /* ignore */ }
+      }
+      chosen = [{ id: targetId }];
+    }
+    for (const t of chosen) this.wantedTargetIds.add(t.id);
+
     // Pause every NEW target at creation until we've enabled Network on it.
     await client.Target.setAutoAttach({ autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
 
@@ -119,7 +138,12 @@ export class CdpRecorder {
     const { targetId } = targetInfo;
     const wanted = this.wantedTargetIds.has(targetId);
     const openedByUs = targetInfo.openerId && this.tabTargetIds.has(targetInfo.openerId);
+    // Browser-level setAutoAttach also attaches existing targets, so a tab we
+    // attachToTarget explicitly can arrive twice — recording both sessions
+    // would duplicate every request. Keep the first, drop the rest.
+    const duplicate = this.tabTargetIds.has(targetId);
     const record =
+      !duplicate &&
       !this.stopping &&
       isRecordablePage(targetInfo) &&
       (wanted || this.attachAll || openedByUs);
@@ -208,7 +232,14 @@ export class CdpRecorder {
     rec.initiator = p.initiator ? { type: p.initiator.type } : undefined;
     rec.tab = tab.index;
     // A tab's first document request is its real URL (popups start blank).
-    if (p.type === 'Document') tab.url = r.url;
+    if (p.type === 'Document') {
+      tab.url = r.url;
+      // Same for the doc header: the fresh main tab attaches as about:blank.
+      if (sessionId === this.mainSessionId && this.target && (!this.target.url || this.target.url === 'about:blank')) {
+        this.target.url = r.url;
+        this.target.title = undefined;
+      }
+    }
     rec.tabUrl = tab.url;
   }
 

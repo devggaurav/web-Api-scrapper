@@ -61,3 +61,35 @@ test('includeNoise keeps filtered entries with a reason', () => {
   assert.equal(flow.length, 1);
   assert.ok(flow[0].filteredReason);
 });
+
+test('auto-detects session sites from Document navigations and flags third-party calls', () => {
+  const records = [
+    { index: 0, method: 'GET', url: 'https://app.myapp.com/checkout', resourceType: 'Document' },
+    { index: 1, method: 'POST', url: 'https://api.myapp.com/v1/cart', resourceType: 'Fetch', status: 200 },
+    { index: 2, method: 'POST', url: 'https://widget.chatvendor.com/api/session', resourceType: 'Fetch', status: 200 },
+  ];
+  const { flow, stats } = normalize(records);
+  assert.deepEqual(stats.sessionSites, ['myapp.com']);
+  assert.equal(flow.find((e) => e.host === 'api.myapp.com').thirdParty, undefined);
+  assert.equal(flow.find((e) => e.host === 'widget.chatvendor.com').thirdParty, true);
+  assert.equal(stats.thirdParty, 1);
+});
+
+test('scopeHosts overrides auto-detection', () => {
+  const records = [
+    { index: 0, method: 'GET', url: 'https://app.myapp.com/home', resourceType: 'Document' },
+    { index: 1, method: 'GET', url: 'https://api.otherco.io/v1/data', resourceType: 'Fetch', status: 200 },
+  ];
+  const { flow } = normalize(records, { scopeHosts: ['otherco.io'] });
+  assert.equal(flow.find((e) => e.host === 'api.otherco.io').thirdParty, undefined);
+});
+
+test('tags repeated polling calls with repeatKey/repeatCount', () => {
+  const poll = (i) => ({ index: i, method: 'GET', url: `https://api.x.com/v1/status?t=${i}`, resourceType: 'Fetch', status: 200 });
+  const records = [poll(0), poll(1), poll(2), { index: 3, method: 'POST', url: 'https://api.x.com/v1/order', resourceType: 'Fetch', status: 201 }];
+  const { flow } = normalize(records);
+  const polls = flow.filter((e) => e.path === '/v1/status');
+  assert.equal(polls.length, 3);
+  for (const p of polls) assert.equal(p.repeatCount, 3);
+  assert.equal(flow.find((e) => e.path === '/v1/order').repeatCount, undefined);
+});

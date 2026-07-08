@@ -13,9 +13,22 @@ import { toHar } from './exporters/har.js';
 import { toMarkdown } from './exporters/markdown.js';
 import { VERSION } from './version.js';
 
-function stamp() {
-  // Filesystem-safe timestamp without relying on locale.
-  return new Date().toISOString().replace(/[:.]/g, '-');
+function stamp(iso) {
+  // Compact, filesystem-safe: 20260708-143052 (from the recording start time).
+  const d = iso ? new Date(iso) : new Date();
+  return d.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
+}
+
+// Every recording gets its own files: a custom name gets the session's start
+// timestamp appended, and if that somehow still collides, a -2/-3 suffix is
+// added rather than silently overwriting a previous recording.
+export function uniqueBase(dir, name, startedAt) {
+  const base = name ? `${name}-${stamp(startedAt)}` : `flow-${stamp(startedAt)}`;
+  let candidate = base;
+  for (let n = 2; existsSync(join(dir, `${candidate}.flow.json`)); n++) {
+    candidate = `${base}-${n}`;
+  }
+  return candidate;
 }
 
 // Grab an OS-assigned free TCP port. Fixes the #1 launch failure: colliding
@@ -95,9 +108,16 @@ export class TrackingSession {
       : undefined;
 
     // Launch mode: the whole window is ours, so record every tab in it
-    // (popups, OAuth windows, new tabs). Attach mode records the chosen tab
-    // plus any popups that tab opens.
-    this.recorder = new CdpRecorder({ port, host, targetFilter, attachAll: Boolean(launch) });
+    // (popups, OAuth windows, new tabs) — but start from a clean slate
+    // (freshContext) so tabs left over from a previous recording don't bleed
+    // into this one. Attach mode records the chosen tab plus its popups.
+    this.recorder = new CdpRecorder({
+      port,
+      host,
+      targetFilter,
+      attachAll: Boolean(launch),
+      freshContext: Boolean(launch),
+    });
     // If the user closes the browser/tab, auto-finalize and write the files.
     this.recorder.onDisconnect = () => { this._onBrowserClosed(); };
     const info = await this.recorder.start();
@@ -125,6 +145,7 @@ export class TrackingSession {
     return normalize(raw, {
       includeNoise: this.opts.includeNoise,
       redact: this.opts.redact !== false,
+      scopeHosts: this.opts.scopeHosts,
     });
   }
 
@@ -151,6 +172,7 @@ export class TrackingSession {
     const norm = normalize(raw.records, {
       includeNoise: this.opts.includeNoise,
       redact: this.opts.redact !== false,
+      scopeHosts: this.opts.scopeHosts,
     });
 
     const session = {
@@ -170,7 +192,7 @@ export class TrackingSession {
       // explicit stop honors them the same way auto-finalize does.
       const dir = outDir || this.opts.outDir || join(process.cwd(), 'recordings');
       mkdirSync(dir, { recursive: true });
-      const base = name || this.opts.name || `flow-${stamp()}`;
+      const base = uniqueBase(dir, name || this.opts.name, raw.startedAt);
       const jsonPath = join(dir, `${base}.flow.json`);
       const harPath = join(dir, `${base}.har`);
       const mdPath = join(dir, `${base}.md`);

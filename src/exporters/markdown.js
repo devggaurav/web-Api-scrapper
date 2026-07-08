@@ -12,9 +12,29 @@ function safeLabel(s) {
   return String(s).replace(/[^\w./:-]/g, '_').slice(0, 40);
 }
 
+// Show each repeated (polling) endpoint once; the count lives on the entry.
+function collapseRepeats(entries) {
+  const seen = new Set();
+  const out = [];
+  for (const e of entries) {
+    if (e.repeatKey) {
+      if (seen.has(e.repeatKey)) continue;
+      seen.add(e.repeatKey);
+    }
+    out.push(e);
+  }
+  return out;
+}
+
+function repeatSuffix(e) {
+  return e.repeatCount > 1 ? ` ×${e.repeatCount}` : '';
+}
+
 export function toMarkdown(session, options = {}) {
   const { flow, stats } = session;
   const apiFlow = flow.filter((e) => e.category === 'api' || e.category === 'websocket' || e.category === 'sse');
+  const coreFlow = collapseRepeats(apiFlow.filter((e) => !e.thirdParty));
+  const thirdFlow = collapseRepeats(apiFlow.filter((e) => e.thirdParty));
   const title = options.title || `API Flow — ${session.target?.title || session.target?.url || 'recording'}`;
   const lines = [];
 
@@ -27,8 +47,15 @@ export function toMarkdown(session, options = {}) {
   // Overview
   lines.push('## Overview');
   lines.push('');
-  lines.push(`- **API calls captured:** ${apiFlow.length}`);
+  const coreTotal = apiFlow.filter((e) => !e.thirdParty).length;
+  lines.push(`- **Core API calls:** ${coreFlow.length} unique (${coreTotal} total incl. polling)`);
+  if (thirdFlow.length) {
+    lines.push(`- **Third-party calls:** ${thirdFlow.length} unique (see "Third-party calls" below)`);
+  }
   lines.push(`- **Total requests seen:** ${stats.totalCaptured} (${stats.droppedCount} filtered as noise)`);
+  if (stats.sessionSites?.length) {
+    lines.push(`- **Session scope:** ${stats.sessionSites.map((s) => `\`${s}\``).join(', ')}`);
+  }
   const hosts = Object.entries(stats.byHost).sort((a, b) => b[1] - a[1]);
   if (hosts.length) {
     lines.push(`- **Hosts:** ${hosts.map(([h, n]) => `\`${h}\` (${n})`).join(', ')}`);
@@ -39,20 +66,20 @@ export function toMarkdown(session, options = {}) {
   }
   lines.push('');
 
-  // Sequence diagram
+  // Sequence diagram (core flow only, one arrow per unique endpoint)
   lines.push('## Sequence diagram');
   lines.push('');
   lines.push('```mermaid');
   lines.push('sequenceDiagram');
   lines.push('    participant B as Browser');
   const participants = new Map();
-  for (const e of apiFlow) {
+  for (const e of coreFlow) {
     if (!participants.has(e.host)) participants.set(e.host, `S${participants.size}`);
   }
   for (const [host, id] of participants) lines.push(`    participant ${id} as ${host}`);
-  for (const e of apiFlow) {
+  for (const e of coreFlow) {
     const id = participants.get(e.host);
-    const label = `${e.method} ${safeLabel(e.path)}`;
+    const label = `${e.method} ${safeLabel(e.path)}${repeatSuffix(e)}`;
     lines.push(`    B->>${id}: ${label}`);
     const st = e.failed ? `FAILED ${e.errorText || ''}` : `${e.status || '?'} ${e.statusText || ''}`.trim();
     lines.push(`    ${id}-->>B: ${st}`);
@@ -60,25 +87,43 @@ export function toMarkdown(session, options = {}) {
   lines.push('```');
   lines.push('');
 
-  // Ordered endpoint table
-  lines.push('## Call sequence');
+  // Ordered endpoint table — the core (first-party) flow
+  lines.push('## Core API flow');
   lines.push('');
-  lines.push('| # | Method | Endpoint | Status | Time |');
-  lines.push('|---|--------|----------|--------|------|');
-  apiFlow.forEach((e, i) => {
+  lines.push('| # | Method | Endpoint | Status | Time | Calls |');
+  lines.push('|---|--------|----------|--------|------|-------|');
+  coreFlow.forEach((e, i) => {
     const status = e.failed ? `✗ ${e.errorText || 'failed'}` : e.status || '';
     const time = e.durationMs != null ? `${e.durationMs}ms` : '';
-    lines.push(`| ${i + 1} | ${e.method} | \`${e.host}${e.path}\` | ${status} | ${time} |`);
+    const calls = e.repeatCount > 1 ? `×${e.repeatCount} (polling)` : '';
+    lines.push(`| ${i + 1} | ${e.method} | \`${e.host}${e.path}\` | ${status} | ${time} | ${calls} |`);
   });
   lines.push('');
 
-  // Detailed breakdown
+  // Third-party calls, kept but out of the way of the core flow.
+  if (thirdFlow.length) {
+    lines.push('## Third-party calls');
+    lines.push('');
+    lines.push('_Calls to hosts outside the session scope — widgets, CDNs, external services. Full detail is in the `.flow.json`._');
+    lines.push('');
+    lines.push('| Method | Endpoint | Status | Calls |');
+    lines.push('|--------|----------|--------|-------|');
+    thirdFlow.forEach((e) => {
+      const status = e.failed ? `✗ ${e.errorText || 'failed'}` : e.status || '';
+      const calls = e.repeatCount > 1 ? `×${e.repeatCount}` : '';
+      lines.push(`| ${e.method} | \`${e.host}${e.path}\` | ${status} | ${calls} |`);
+    });
+    lines.push('');
+  }
+
+  // Detailed breakdown (core flow)
   lines.push('## Call details');
   lines.push('');
-  apiFlow.forEach((e, i) => {
-    lines.push(`### ${i + 1}. ${e.method} ${e.path}`);
+  coreFlow.forEach((e, i) => {
+    lines.push(`### ${i + 1}. ${e.method} ${e.path}${repeatSuffix(e)}`);
     lines.push('');
     lines.push(`- **URL:** \`${e.url}\``);
+    if (e.repeatCount > 1) lines.push(`- **Calls:** ${e.repeatCount} (polling — first shown; all instances are in the \`.flow.json\`)`);
     if (e.tab > 0) lines.push(`- **Tab:** popup/new tab #${e.tab}${e.tabUrl ? ` (\`${e.tabUrl}\`)` : ''}`);
     lines.push(`- **Status:** ${e.failed ? `✗ ${e.errorText}` : `${e.status || ''} ${e.statusText || ''}`}`);
     if (e.durationMs != null) lines.push(`- **Duration:** ${e.durationMs}ms`);

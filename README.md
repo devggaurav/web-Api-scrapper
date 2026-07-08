@@ -254,10 +254,11 @@ Add any of these to the end of a `record` command:
 
 | Option | What it does | Example |
 |--------|--------------|---------|
-| `--name checkout` | Name the files `checkout` instead of a timestamp | `--name checkout` |
+| `--name checkout` | Prefix the files with `checkout` (a timestamp is still appended so recordings never overwrite each other) | `--name checkout` |
 | `--out ~/Desktop/docs` | Save files somewhere else (like your Desktop) | `--out ~/Desktop/docs` |
 | `--title "Checkout Flow"` | Give the document a proper title | `--title "Checkout Flow"` |
 | `--url-match myapp` | Watch the correct browser tab | `--url-match myapp` |
+| `--scope myapp.com` | Declare which domains the flow is about; calls to other hosts are listed separately as third-party (default: auto-detected from the pages you visit) | `--scope myapp.com,api.myapp.io` |
 | `--include-noise` | Keep *everything* (images, fonts, tracking too) | `--include-noise` |
 | `--no-redact` | Show passwords/tokens (⚠️ don't share the file then) | `--no-redact` |
 

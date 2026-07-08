@@ -68,8 +68,9 @@ server.registerTool(
       headless: z.boolean().optional().describe('Launch headless (launch mode).'),
       includeNoise: z.boolean().optional().describe('Also keep filtered static/analytics requests.'),
       redact: z.boolean().optional().describe('Redact auth/cookie headers (default true).'),
+      scopeHosts: z.array(z.string()).optional().describe('Hosts/domains the flow is about (e.g. ["myapp.com","api.myapp.io"]). Calls to other hosts are kept but flagged thirdParty. Default: auto-detected from the pages visited.'),
       outDir: z.string().optional().describe('Where to write output files if the user closes the browser (default ./recordings).'),
-      name: z.string().optional().describe('Output file basename used on auto-finalize (default flow-<timestamp>).'),
+      name: z.string().optional().describe('Output file basename used on auto-finalize; the recording start timestamp is appended automatically so recordings never overwrite each other (default flow-<timestamp>).'),
       title: z.string().optional().describe('Title for the generated Markdown document.'),
     },
   },
@@ -85,6 +86,7 @@ server.registerTool(
       headless: Boolean(args.headless),
       includeNoise: Boolean(args.includeNoise),
       redact: args.redact !== false,
+      scopeHosts: args.scopeHosts,
       // Defaults used to write files automatically if the user closes the browser.
       outDir: args.outDir,
       name: args.name,
@@ -138,7 +140,7 @@ server.registerTool(
     }
     const summary = snap.flow
       .filter((e) => e.category !== 'document')
-      .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs }));
+      .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs, ...(e.thirdParty ? { thirdParty: true } : {}) }));
     return json({ stats: snap.stats, calls: summary });
   },
 );
@@ -149,7 +151,7 @@ server.registerTool(
     description: 'Stop the current recording, write JSON + HAR + Markdown outputs to disk, and return the full normalized flow plus file paths.',
     inputSchema: {
       outDir: z.string().optional().describe('Output directory (default ./recordings).'),
-      name: z.string().optional().describe('Output file basename (default flow-<timestamp>).'),
+      name: z.string().optional().describe('Output file basename; the recording start timestamp is appended automatically so recordings never overwrite each other (default flow-<timestamp>).'),
       title: z.string().optional().describe('Title for the generated Markdown document.'),
       closeBrowser: z.boolean().optional().describe('Close the browser if it was launched by this tool.'),
     },
@@ -167,7 +169,7 @@ server.registerTool(
       // can be huge, so it lives in the .flow.json file — read that to build the doc.
       const calls = session.flow
         .filter((e) => e.category !== 'document')
-        .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs }));
+        .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs, ...(e.thirdParty ? { thirdParty: true } : {}) }));
       const result = {
         status: closedByUser ? 'ended (browser closed)' : 'stopped',
         files,

@@ -41,8 +41,12 @@ RECORD OPTIONS
   --url-match <s>   When attaching, pick the tab whose URL contains this string
   --headless        Launch headless (only with --launch)
   --out <dir>       Output directory (default ./recordings)
-  --name <base>     Output file basename (default flow-<timestamp>)
+  --name <base>     Output file basename; the recording start timestamp is
+                    appended automatically (default flow-<timestamp>)
   --title <t>       Title for the generated Markdown doc
+  --scope <hosts>   Comma-separated hosts the flow is about (e.g. myapp.com);
+                    calls to other hosts are kept but flagged third-party.
+                    Default: auto-detected from the pages you visit
   --include-noise   Keep filtered (static/analytics) requests too
   --no-redact       Do NOT redact auth/cookie headers (default: redact)
 
@@ -96,6 +100,7 @@ async function cmdRecord(args) {
     headless: Boolean(args.headless),
     includeNoise: Boolean(args['include-noise']),
     redact: !args['no-redact'],
+    scopeHosts: typeof args.scope === 'string' ? args.scope.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
     title: typeof args.title === 'string' ? args.title : undefined,
     // Used if the user closes the browser instead of pressing Ctrl+C.
     outDir: typeof args.out === 'string' ? args.out : undefined,
