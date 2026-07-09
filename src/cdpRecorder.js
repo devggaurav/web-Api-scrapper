@@ -64,8 +64,10 @@ export class CdpRecorder {
     this.freshContext = freshContext;
     this.client = null; // single browser-level connection
     this.sessions = new Map(); // sessionId -> tab {index, targetId, url}
+    this.sessionReady = new Map(); // sessionId -> Promise (Network.enable done)
     this.tabTargetIds = new Set(); // targetIds we record (for openerId checks)
     this.wantedTargetIds = new Set(); // initial tabs chosen at start()
+    this.staleTargetIds = new Set(); // freshContext: leftover tabs being closed
     this.tabSeq = 0;
     this.seq = 0;
     this.startedAt = null;
@@ -116,6 +118,10 @@ export class CdpRecorder {
       const { targetId } = await client.Target.createTarget({ url: 'about:blank' });
       for (const t of pages) {
         if (t.id === targetId) continue;
+        // Remember them: closeTarget races setAutoAttach's announcements, and
+        // a stale tab that gets announced first must never become the
+        // recording's main session (it is about to die).
+        this.staleTargetIds.add(t.id);
         try { await client.Target.closeTarget({ targetId: t.id }); } catch { /* ignore */ }
       }
       chosen = [{ id: targetId }];
@@ -125,8 +131,11 @@ export class CdpRecorder {
     // Pause every NEW target at creation until we've enabled Network on it.
     await client.Target.setAutoAttach({ autoAttach: true, waitForDebuggerOnStart: true, flatten: true });
 
-    // Existing tabs aren't covered by autoAttach — attach to the chosen ones.
+    // Attach the chosen tabs — unless setAutoAttach already announced them
+    // (modern Chromium auto-attaches existing targets too; attaching again
+    // would just create a duplicate session).
     for (const t of chosen) {
+      if (this.tabTargetIds.has(t.id)) continue;
       await client.Target.attachToTarget({ targetId: t.id, flatten: true });
     }
 
@@ -139,12 +148,19 @@ export class CdpRecorder {
     const wanted = this.wantedTargetIds.has(targetId);
     const openedByUs = targetInfo.openerId && this.tabTargetIds.has(targetInfo.openerId);
     // Browser-level setAutoAttach also attaches existing targets, so a tab we
-    // attachToTarget explicitly can arrive twice — recording both sessions
-    // would duplicate every request. Keep the first, drop the rest.
-    const duplicate = this.tabTargetIds.has(targetId);
+    // attachToTarget explicitly can be announced twice — recording both would
+    // duplicate every request. Keep the first announcement, IGNORE the rest:
+    // Chromium may coalesce both attaches into ONE session, so detaching the
+    // "duplicate" here can kill the very session we record on.
+    if (this.tabTargetIds.has(targetId)) {
+      if (waitingForDebugger) {
+        try { await this.client.Runtime.runIfWaitingForDebugger(sessionId); } catch { /* ignore */ }
+      }
+      return;
+    }
     const record =
-      !duplicate &&
       !this.stopping &&
+      !this.staleTargetIds.has(targetId) &&
       isRecordablePage(targetInfo) &&
       (wanted || this.attachAll || openedByUs);
 
@@ -164,19 +180,26 @@ export class CdpRecorder {
       this.target = { id: targetId, url: targetInfo.url, title: targetInfo.title };
     }
 
-    try {
-      await this.client.Network.enable(
-        { maxTotalBufferSize: 100_000_000, maxResourceBufferSize: 20_000_000 },
-        sessionId,
-      );
-      try { await this.client.Page.enable(sessionId); } catch { /* Page domain optional */ }
-    } finally {
-      // Only resume the page once capture is on — this is what makes new
-      // tabs/popups lose zero requests.
-      if (waitingForDebugger) {
-        try { await this.client.Runtime.runIfWaitingForDebugger(sessionId); } catch { /* ignore */ }
+    // Tracked so navigate() can wait for capture to actually be on before
+    // triggering the first page load — otherwise requests fired at load race
+    // the Network.enable round-trip and get silently lost.
+    const ready = (async () => {
+      try {
+        await this.client.Network.enable(
+          { maxTotalBufferSize: 100_000_000, maxResourceBufferSize: 20_000_000 },
+          sessionId,
+        );
+        try { await this.client.Page.enable(sessionId); } catch { /* Page domain optional */ }
+      } finally {
+        // Only resume the page once capture is on — this is what makes new
+        // tabs/popups lose zero requests.
+        if (waitingForDebugger) {
+          try { await this.client.Runtime.runIfWaitingForDebugger(sessionId); } catch { /* ignore */ }
+        }
       }
-    }
+    })();
+    this.sessionReady.set(sessionId, ready.catch(() => {}));
+    await ready;
   }
 
   // A recorded tab went away (closed or crashed). When the LAST one goes,
@@ -187,6 +210,7 @@ export class CdpRecorder {
     const tab = this.sessions.get(sessionId);
     if (!tab) return;
     this.sessions.delete(sessionId);
+    this.sessionReady.delete(sessionId);
     this.tabTargetIds.delete(tab.targetId);
     if (!this.stopping && this.everAttached && this.sessions.size === 0) {
       this.onDisconnect?.();
@@ -197,6 +221,9 @@ export class CdpRecorder {
   // before the page fires its first request (avoids missing early calls).
   async navigate(url) {
     if (!this.client || this.mainSessionId == null) throw new Error('Recorder not started.');
+    // Capture must be ON before the load fires, or the page's first requests
+    // (fired from inline scripts at load) are lost.
+    await this.sessionReady.get(this.mainSessionId);
     await this.client.Page.navigate({ url }, this.mainSessionId);
   }
 
@@ -349,6 +376,7 @@ export class CdpRecorder {
       this.client = null;
     }
     this.sessions.clear();
+    this.sessionReady.clear();
     return {
       startedAt: this.startedAt,
       stoppedAt: new Date().toISOString(),

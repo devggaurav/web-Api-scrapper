@@ -53,6 +53,10 @@ export function toMarkdown(session, options = {}) {
     lines.push(`- **Third-party calls:** ${thirdFlow.length} unique (see "Third-party calls" below)`);
   }
   lines.push(`- **Total requests seen:** ${stats.totalCaptured} (${stats.droppedCount} filtered as noise)`);
+  if (options.events?.count) {
+    const byP = Object.entries(options.events.byProvider || {}).map(([p, n]) => `${p} ×${n}`).join(', ');
+    lines.push(`- **Analytics events:** ${options.events.count}${byP ? ` (${byP})` : ''} — see \`${options.events.file}\``);
+  }
   if (stats.sessionSites?.length) {
     lines.push(`- **Session scope:** ${stats.sessionSites.map((s) => `\`${s}\``).join(', ')}`);
   }

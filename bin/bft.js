@@ -48,6 +48,8 @@ RECORD OPTIONS
                     calls to other hosts are kept but flagged third-party.
                     Default: auto-detected from the pages you visit
   --include-noise   Keep filtered (static/analytics) requests too
+  --no-events       Skip the analytics/business events timeline (GA4, Segment,
+                    Mixpanel, …) that is otherwise written to .events.json/.md
   --no-redact       Do NOT redact auth/cookie headers (default: redact)
 
 EXAMPLES
@@ -101,6 +103,7 @@ async function cmdRecord(args) {
     includeNoise: Boolean(args['include-noise']),
     redact: !args['no-redact'],
     scopeHosts: typeof args.scope === 'string' ? args.scope.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+    captureEvents: !args['no-events'],
     title: typeof args.title === 'string' ? args.title : undefined,
     // Used if the user closes the browser instead of pressing Ctrl+C.
     outDir: typeof args.out === 'string' ? args.out : undefined,
@@ -127,11 +130,14 @@ async function cmdRecord(args) {
       clearInterval(ticker);
       const { session: result, files } = session.finalized;
       process.stdout.write('\n\nBrowser closed — recording saved.\n');
-      console.log(`\nCaptured ${result.stats.kept} API calls (${result.stats.droppedCount} filtered).`);
+      console.log(`\nCaptured ${result.stats.kept} API calls (${result.stats.droppedCount} filtered)${result.stats.analyticsEvents ? ` and ${result.stats.analyticsEvents} analytics events` : ''}.`);
       console.log('\nWrote:');
       console.log(`  JSON (for Claude/Cursor): ${files.json}`);
       console.log(`  HAR  (DevTools/Postman):  ${files.har}`);
       console.log(`  Doc  (Markdown draft):    ${files.markdown}`);
+      if (files.eventsJson) {
+        console.log(`  Events (analytics/GA):    ${files.eventsMarkdown}`);
+      }
       process.exit(0);
     }
     const snap = session.snapshot();
@@ -147,11 +153,14 @@ async function cmdRecord(args) {
         name: typeof args.name === 'string' ? args.name : undefined,
         closeBrowser: launch,
       });
-      console.log(`\nCaptured ${result.stats.kept} API calls (${result.stats.droppedCount} filtered).`);
+      console.log(`\nCaptured ${result.stats.kept} API calls (${result.stats.droppedCount} filtered)${result.stats.analyticsEvents ? ` and ${result.stats.analyticsEvents} analytics events` : ''}.`);
       console.log('\nWrote:');
       console.log(`  JSON (for Claude/Cursor): ${files.json}`);
       console.log(`  HAR  (DevTools/Postman):  ${files.har}`);
       console.log(`  Doc  (Markdown draft):    ${files.markdown}`);
+      if (files.eventsJson) {
+        console.log(`  Events (analytics/GA):    ${files.eventsMarkdown}`);
+      }
     } catch (e) {
       console.error(`Error while stopping: ${e.message}`);
     }

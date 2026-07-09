@@ -41,6 +41,11 @@ const server = new McpServer(
       'themselves. Do not auto-navigate the flow for them. When they say they are done, call',
       'stop_tracking and turn the returned flow into a document. Use get_flow for a live peek.',
       'The launched window uses a persistent profile, so a login done once is remembered.',
+      '',
+      'Recordings also decode the analytics/business events fired during the flow (GA4,',
+      'Segment, Mixpanel, FB Pixel, …) into a separate .events.json/.events.md timeline —',
+      'useful for analytics QA ("did add_to_cart fire with the right params?"). When the',
+      'user asks about business/GA events, read the .events.json from disk.',
     ].join('\n'),
   },
 );
@@ -69,6 +74,7 @@ server.registerTool(
       includeNoise: z.boolean().optional().describe('Also keep filtered static/analytics requests.'),
       redact: z.boolean().optional().describe('Redact auth/cookie headers (default true).'),
       scopeHosts: z.array(z.string()).optional().describe('Hosts/domains the flow is about (e.g. ["myapp.com","api.myapp.io"]). Calls to other hosts are kept but flagged thirdParty. Default: auto-detected from the pages visited.'),
+      captureEvents: z.boolean().optional().describe('Decode analytics/business events (GA4, Segment, Mixpanel, …) fired during the session into a separate .events.json/.events.md timeline (default true).'),
       outDir: z.string().optional().describe('Where to write output files if the user closes the browser (default ./recordings).'),
       name: z.string().optional().describe('Output file basename used on auto-finalize; the recording start timestamp is appended automatically so recordings never overwrite each other (default flow-<timestamp>).'),
       title: z.string().optional().describe('Title for the generated Markdown document.'),
@@ -87,6 +93,7 @@ server.registerTool(
       includeNoise: Boolean(args.includeNoise),
       redact: args.redact !== false,
       scopeHosts: args.scopeHosts,
+      captureEvents: args.captureEvents !== false,
       // Defaults used to write files automatically if the user closes the browser.
       outDir: args.outDir,
       name: args.name,
@@ -141,7 +148,7 @@ server.registerTool(
     const summary = snap.flow
       .filter((e) => e.category !== 'document')
       .map((e) => ({ i: e.index, method: e.method, url: `${e.host}${e.path}`, status: e.status, ms: e.durationMs, ...(e.thirdParty ? { thirdParty: true } : {}) }));
-    return json({ stats: snap.stats, calls: summary });
+    return json({ stats: snap.stats, calls: summary, ...(snap.events ? { events: snap.events } : {}) });
   },
 );
 
@@ -176,7 +183,8 @@ server.registerTool(
         stats: session.stats,
         target: session.target,
         calls,
-        note: 'Full request/response detail is in the .flow.json file — read it from disk to write the doc.',
+        note: 'Full request/response detail is in the .flow.json file — read it from disk to write the doc.'
+          + (files?.eventsJson ? ' Decoded analytics/business events (with timestamps, in firing order) are in the .events.json / .events.md files.' : ''),
       };
       current = null;
       return json(result);

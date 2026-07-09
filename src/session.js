@@ -9,8 +9,10 @@ import CDP from 'chrome-remote-interface';
 import { CdpRecorder } from './cdpRecorder.js';
 import { launchBrowser } from './browsers.js';
 import { normalize } from './normalize.js';
+import { decodeEvents, countByProvider } from './analyticsEvents.js';
 import { toHar } from './exporters/har.js';
 import { toMarkdown } from './exporters/markdown.js';
+import { toEventsMarkdown } from './exporters/eventsMarkdown.js';
 import { VERSION } from './version.js';
 
 function stamp(iso) {
@@ -142,11 +144,16 @@ export class TrackingSession {
   snapshot() {
     if (!this.recorder) return { flow: [], stats: {} };
     const raw = this.recorder.getRecords();
-    return normalize(raw, {
+    const norm = normalize(raw, {
       includeNoise: this.opts.includeNoise,
       redact: this.opts.redact !== false,
       scopeHosts: this.opts.scopeHosts,
     });
+    if (this.opts.captureEvents !== false) {
+      const events = decodeEvents(raw, { redact: this.opts.redact !== false });
+      norm.events = { count: events.length, byProvider: countByProvider(events) };
+    }
+    return norm;
   }
 
   // Called when the CDP socket drops because the user closed the browser/tab.
@@ -175,6 +182,16 @@ export class TrackingSession {
       scopeHosts: this.opts.scopeHosts,
     });
 
+    // Business/analytics events are a separate lens over the same records:
+    // full detail goes in its own .events.json/.events.md pair, only counts
+    // land in the main outputs.
+    const events = this.opts.captureEvents !== false
+      ? decodeEvents(raw.records, { redact: this.opts.redact !== false })
+      : [];
+    const byProvider = countByProvider(events);
+    norm.stats.analyticsEvents = events.length;
+    if (events.length) norm.stats.eventsByProvider = byProvider;
+
     const session = {
       tool: 'browser-flow-tracker',
       version: VERSION,
@@ -198,8 +215,33 @@ export class TrackingSession {
       const mdPath = join(dir, `${base}.md`);
       writeFileSync(jsonPath, JSON.stringify(session, null, 2));
       writeFileSync(harPath, JSON.stringify(toHar(session.flow, session), null, 2));
-      writeFileSync(mdPath, toMarkdown({ ...session }, { title: this.opts.title }));
+      writeFileSync(mdPath, toMarkdown({ ...session }, {
+        title: this.opts.title,
+        events: events.length ? { count: events.length, byProvider, file: `${base}.events.md` } : undefined,
+      }));
       files = { json: jsonPath, har: harPath, markdown: mdPath };
+
+      if (events.length) {
+        const eventsJsonPath = join(dir, `${base}.events.json`);
+        const eventsMdPath = join(dir, `${base}.events.md`);
+        const eventsDoc = {
+          tool: 'browser-flow-tracker',
+          version: VERSION,
+          startedAt: raw.startedAt,
+          stoppedAt: raw.stoppedAt,
+          target: raw.target,
+          count: events.length,
+          byProvider,
+          events,
+        };
+        writeFileSync(eventsJsonPath, JSON.stringify(eventsDoc, null, 2));
+        writeFileSync(eventsMdPath, toEventsMarkdown(
+          { events, byProvider, startedAt: raw.startedAt, stoppedAt: raw.stoppedAt, target: raw.target },
+          { title: this.opts.title },
+        ));
+        files.eventsJson = eventsJsonPath;
+        files.eventsMarkdown = eventsMdPath;
+      }
     }
 
     // Browser.close via CDP is preferred (works for reused windows too);
